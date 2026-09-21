@@ -1,0 +1,39 @@
+---
+description: Module filenames name the concept, readable without their directory
+globs: src/**/*.py
+alwaysApply: false
+---
+
+# File naming
+
+A filename must identify what is in the file on its own, without the directory as context. Grep
+output, tracebacks and editor tabs all show the basename alone, and a tree full of `router.py`,
+`service.py` and `client.py` is unreadable in all three.
+
+```
+GOOD  routes/k8s_probe_router.py     logger/log_manager.py
+BAD   routes/k8s_probes/router.py    logger/manager.py
+```
+
+- `snake_case`. A hyphenated module cannot be imported.
+- Repeat the concept even when the directory already states it. The redundancy costs nothing and
+  the basename has to stand alone.
+- No catch-all modules: `utils.py`, `helpers.py`, `common.py`, `misc.py`. If nothing more specific
+  fits, the contents do not belong together.
+- One primary export, named after the file: `k8s_probe_router.py` exports `k8s_probe_router`.
+
+## Directory layout
+
+Routers are sibling modules under `routes/` (`feature_flag_router.py`, `k8s_probe_router.py`).
+Nest a router domain only when *that* domain grows a second module. Request and response
+schemas live in `models/`, not beside the router.
+
+Services and models keep a subdirectory per domain from the start: a use case is
+`*_service.py` plus `*_errors.py`, and a domain accumulates schemas
+(`models/k8s_probes/k8s_probe_response.py`). Nesting never shortens a filename. The basename
+still has to stand alone.
+
+`prometheus/` is an HTTP-layer package, sibling of `routes/` and `middlewares/`. The
+manager and each HTTP-aware series are sibling modules under it
+(`prometheus_manager.py`). Nest a series only when that series grows a
+second module.

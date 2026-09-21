@@ -1,0 +1,38 @@
+---
+description: Adding authentication, JWT, sessions, HTTPBearer, Authorization, or X-Session-ID
+globs: src/app/state/**/*.py,src/app/routes/**/*.py,src/app/middlewares/**/*.py,src/app/services/**/*.py,src/app/lifecycle/**/*.py,src/app/models/**/*.py,src/app/config/app_consts.py
+alwaysApply: false
+---
+
+# Authentication
+
+This template does not ship auth. When you add it, honor the same construction and
+layering rules as every other dependency. Sketches (JWT and session) live in
+`README.md` (Authentication), `src/app/state/README.md`, and
+`src/app/middlewares/README.md`.
+
+Identity is request-scoped. A route `Depends` on claims or session info and passes
+`user_id` (and other fields the use case needs) into the service **method**. Do not
+put identity on a service `__init__`. Do not import `Request` in `services/`.
+
+```python
+# BAD - request identity on a process-wide service
+class OrdersService:
+    def __init__(self, session: SessionInfo) -> None: ...
+
+# GOOD - pass fields into the method
+async def list_for_user(self, user_id: str) -> list[Order]: ...
+```
+
+Construct verifiers, token or session clients, and auth services in `lifecycle/` only.
+No module-level `HTTPBearer()`, security scheme, or client. Read headers on the
+`Request` inside the `Depends` (same pattern as `X-Session-ID`).
+
+The HTTP layer does not call `RedisClient`. A `SessionService` (injected like
+`FeatureFlagService`) loads the session. `require_*` accessors live next to
+`get_feature_flag_service` and call `get_app_services()`.
+
+Probes and `GET /metrics` omit the auth `Depends`. If you later need a uniform
+pre-route 401, register ASGI only in `_add_middlewares_in_order`, before
+`CorrelationIdMiddleware`, exempt paths via `app_consts.py`, and talk to a
+service — never a client.

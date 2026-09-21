@@ -1,0 +1,62 @@
+---
+description: Three layers, imports point down, the import graph is a DAG
+globs: src/**/*.py
+alwaysApply: false
+---
+
+# Architecture
+
+Three layers. Imports point down, never up.
+
+```
+routes/  middlewares/  prometheus/   HTTP          FastAPI routers, ASGI middleware,
+                                                   scrape endpoint and HTTP-aware series
+                                                   siblings: none of the three imports another
+   |
+state/                  App state     typed AppState and request accessors
+   |
+services/               Service       business logic
+   |
+clients/                Data access   redis, postgres, external APIs
+```
+
+A route calls a service; a service calls a client. A client knows nothing above it — a Redis
+client importing `fastapi` is the canonical violation.
+
+`lifecycle/` is the composition root and is the one package allowed to import every layer.
+`state/` sits below the HTTP layer so routers can `Depends` on typed accessors without
+importing `lifecycle/` (that would be an upward import). `models/`, `config/`, `logger/`,
+`metrics/` and `distribution/` are cross-cutting: any layer may import them, they import
+no layer. `logger/` and `metrics/` are independent siblings. `distribution/` sits below
+them because the composition root looks up `installed_app_version` and injects it;
+`LogManager` only stamps the string. Shared HTTP header names, unprefixed infrastructure
+paths, and the log `app` identity (`APP_NAME`) live in `config/app_consts.py`.
+
+Check the direction before adding an import. If a lower layer needs something from a higher one,
+the design is wrong: move the shared piece down, or pass it in through the constructor. Never
+break a cycle with a function-local or `TYPE_CHECKING` import — both hide the problem.
+
+The import graph must stay a DAG. Python tolerates cycles; this codebase does not.
+`uv run lint-imports` enforces this from the contracts in `pyproject.toml`. It only sees
+directory-sized layers: two modules in the same package that import each other still pass it
+and are still a cycle. Same-layer packages listed with `|`
+(`routes | middlewares | prometheus`) are the sibling set it catches. Everything else
+at one level is the developer's job — move the
+shared type down, or inject the dependency from the composition root.
+
+## Public barrels
+
+A package's `__init__.py` re-exports its public types so callers write
+`from app.state import AppState` rather than a leaf path. Modules *inside* that
+package still import siblings by module path (`from app.state.app_state import AppState`).
+Importing the package from one of its own modules is a cycle: the `__init__` is already
+loading that module.
+
+When you add a type, decide in the same change whether it belongs on that package's
+`__all__`. Barrel what other packages import. Leave internals, `_`-prefixed names, and
+implementation details off (`PostgresBase` is imported by sibling table modules by leaf
+path). The package `__init__.py` `__all__` is the source of truth.
+
+A later `AuthMiddleware` that is only imported as
+`from app.middlewares.auth_middleware import AuthMiddleware` is an incomplete addition:
+`app.middlewares` must re-export it too.

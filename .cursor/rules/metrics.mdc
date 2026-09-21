@@ -1,0 +1,39 @@
+---
+description: Business collectors live in metrics/ and are injected; never constructed in the service.
+globs: src/app/metrics/**/*.py,src/app/services/**/*.py,src/app/lifecycle/**/*.py,src/app/clients/**/*.py,src/app/routes/**/*.py
+alwaysApply: false
+---
+
+# Metrics
+
+Business collectors (`Counter`, `Histogram`, …) are declared in `metrics/`, one
+module per domain (`feature_flag_metrics.py`). Series that read the Starlette
+request belong in `prometheus/`, not here.
+
+The composition root constructs each collector class once on
+`PrometheusManager.registry` and injects it. A service or client never calls
+`Counter(...)` itself and never defaults to the process-wide `REGISTRY`. Tests
+pass a private `CollectorRegistry`.
+
+```python
+# BAD - the service owns a process-wide series
+class FeatureFlagService:
+    def __init__(self) -> None:
+        self._reads = Counter("feature_flag_reads_total", "…")
+
+    async def get_flag(self, name: str) -> FeatureFlag:
+        self._reads.inc()
+```
+
+```python
+# GOOD - injected
+class FeatureFlagService:
+    def __init__(self, metrics: FeatureFlagMetrics) -> None:
+        self._metrics = metrics
+
+    async def get_flag(self, name: str) -> FeatureFlag:
+        self._metrics.reads_total.inc()
+
+# composition root, once per app
+FeatureFlagMetrics(registry=self._prometheus.registry)
+```

@@ -1,0 +1,64 @@
+---
+description: Loggers are injected, never global. Routes log only through RouteLogger.
+globs: **/*.py
+alwaysApply: false
+---
+
+# Logging
+
+Every component receives its own named child logger through its constructor.
+
+```python
+# BAD - module-level logger
+log = structlog.get_logger()
+
+class UsersService:
+    def create(self, email: str) -> None:
+        log.info("user.created", email=email)
+```
+
+```python
+# GOOD - injected
+class UsersService:
+    def __init__(self, logger: FilteringBoundLogger) -> None:  # structlog.typing
+        self._logger = logger
+
+    def create(self, email: str) -> None:
+        self._logger.info("user.created", email=email)
+
+# composition root, once per app
+users_service = UsersService(log_manager.get_child_logger("UsersService"))
+```
+
+If a **route** logs, the logger must be a `RouteLogger` argument. Do not call
+`get_child_logger` inside the handler, do not keep a module-level logger, and do not
+reach for `LogManager` on application state. `RouteLogger` is a `Depends` that names
+the child after the matched route's FastAPI `name=`. Set `name=` explicitly.
+
+```python
+@feature_flag_router.get("/{name}", name="feature-flag-router.get")
+async def get_feature_flag(
+    name: str,
+    service: Annotated[FeatureFlagService, Depends(get_feature_flag_service)],
+    logger: RouteLogger,
+) -> FeatureFlag:
+    logger.info("feature_flag.get", name=name)
+    return await service.get_flag(name)
+```
+
+Never: `structlog.configure()`, `logging.getLogger(__name__)`, a module-level logger, or a
+component constructing its own `LogManager`. Do not log `correlation_id`, `env`, `app`,
+`instance`, or `app.version` as call-site kwargs; the manager stamps them.
+
+Uncaught errors are three `LogManager` children (`context` `uvicorn`, `asyncio`,
+`sys.excepthook`), not a wrapper on every route. Uvicorn error/access bridges are
+installed from `main` via `LifecycleManager`, not from `create_app`. Details:
+`src/app/logger/README.md`.
+
+Log call style:
+
+- Message is a short lowercase dotted event name (`"redis.connect.failed"`), never an f-string.
+  Everything variable goes in kwargs so it stays queryable.
+- Never log a `SecretStr`, a `.get_secret_value()` result, or an assembled DSN.
+- Use `.exception(...)` inside `except` to attach the traceback. Uncaught hooks use
+  `.error(..., exc_info=exc)` because they are not inside the original `except`.

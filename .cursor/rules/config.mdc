@@ -1,0 +1,27 @@
+---
+description: Config fields match env names; durations are ints with a unit suffix
+globs: src/app/config/**/*.py
+alwaysApply: false
+---
+
+# Configuration
+
+Resource models use `ALL_CAPS` fields that match env leaves (`POSTGRES__HOST`).
+
+A duration, timeout, or TTL is an `int` whose name ends in `_SECONDS` or `_MS` for the unit the
+downstream API actually takes. Do not use `timedelta`, and do not convert under the hood (no
+seconds-to-ms multiply).
+
+```python
+# BAD - unit living only in a comment, then converted
+COMMAND_TIMEOUT: timedelta = Field(default=timedelta(seconds=5))
+# later: int(timeout.total_seconds() * 1000)
+
+# GOOD - the name is the unit the consumer wants
+CONNECT_TIMEOUT_SECONDS: int = Field(default=5, ge=1)   # redis-py / libpq
+STATEMENT_TIMEOUT_MS: int = Field(default=5000, ge=1)  # PostgreSQL GUC
+CACHE_TTL_SECONDS: int = Field(default=300, ge=1)       # Redis SET EX
+```
+
+Redis timeouts are seconds (`socket_timeout`). Postgres connect and pool wait are seconds;
+`statement_timeout` is milliseconds. Pick the consumer's unit, not a common one.

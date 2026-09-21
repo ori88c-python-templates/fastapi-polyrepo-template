@@ -1,0 +1,67 @@
+---
+description: Test layout and the ban on monkeypatching
+globs: tests/**/*.py
+alwaysApply: false
+---
+
+# Tests
+
+## Layout
+
+Unit tests live under `tests/unit/`, integration tests under `tests/integration/`,
+end-to-end tests under `tests/e2e/`. Within each tree, layout mirrors `src/app/`:
+one directory per package (`routes/`, `middlewares/`, `services/`, `logger/`,
+`config/`, `distribution/`, …), then one directory per component under test, then
+one file per feature, named after that feature. Splitting by feature keeps files
+short and makes a failure name the broken behaviour before you open anything.
+Never let one file accumulate every test for a component. `prometheus/` is already
+the package, so that suite is not nested as `prometheus/prometheus/`.
+
+Integration talks to Redis and PostgreSQL via Testcontainers, not in-process doubles. End-to-end
+is HTTP through the real app (`LifecycleManager`, routers, middleware) against the same throwaway
+stores.
+
+Shared fixtures go in the nearest `conftest.py`. `sink`, `log_manager`, and `throwaway_stores`
+live in `tests/conftest.py`. `throwaway_stores` is not autouse: unit tests never request it, so
+`pytest tests/unit` starts no containers. Throwaway Redis/Postgres and Alembic `upgrade head` are
+`tests/throwaway_stores.py` and `tests/alembic_upgrade.py`. Integration exposes started clients;
+e2e exposes the HTTP `client`. A later service or router reuses those rather than starting its
+own containers.
+
+## No monkeypatching
+
+`monkeypatch`, `unittest.mock.patch`, and reassigning module or instance attributes are
+forbidden. Patching is a smell that dependency injection is missing: either the code
+under test reaches for **global state** (module logger, process `REGISTRY`, `sys.stdout`),
+or the test **overrides a private** (`service._redis = …`) that should have been an
+`__init__` argument. Fix the production constructor; do not patch around it.
+
+Fixtures are the test composition root: construct dependencies and pass them in.
+
+```python
+# BAD - hidden global
+monkeypatch.setattr(sys, "stdout", fake)
+
+# GOOD - inject the stream
+manager = LogManager(config, env=Environment.DEV, app_version="0.1.0", stream=io.BytesIO())
+
+# BAD - private that belongs on __init__
+service._redis = fake_redis
+monkeypatch.setattr(service, "_redis", fake_redis)
+
+# GOOD - inject the client
+service = FeatureFlagService(
+    postgres=postgres, redis=fake_redis, config=config, logger=logger, metrics=metrics
+)
+```
+
+Injecting a dependency is fine: a buffer, a temp file, an in-memory implementation, or an
+`AsyncMock` constructed and handed to `AppState`. That is dependency injection, not patching.
+`AsyncMock(spec=RedisClient)` on a router test is allowed; `patch("app.clients.redis...")` is not.
+
+## Assertions
+
+Assert on real observable output, not on whether a mock was called. A mock of the thing under test
+proves only that the test matches the implementation.
+
+Name tests as a sentence stating the guarantee: `test_records_below_the_minimum_level_are_dropped`.

@@ -1,0 +1,159 @@
+[project]
+name = "fastapi-polyrepo-template"
+version = "1.0.0"
+description = "A modern Python polyrepo template built around dependency injection and zero global state."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi~=0.141.1",
+    "pydantic~=2.13.5",
+    "pydantic-settings~=2.15.0",
+    "psycopg[binary]~=3.2",
+    "redis~=8.1.0",
+    "sqlalchemy[asyncio]~=2.0.52",
+    "structlog~=26.1.0",
+    "uvicorn[standard]~=0.52.4",
+    "secure~=2.0.1",
+    "prometheus-fastapi-instrumentator~=8.0.2",
+    "prometheus-client~=0.26.0",
+    "alembic~=1.20.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ori88c-python-packages/fastapi-polyrepo-template"
+Repository = "https://github.com/ori88c-python-packages/fastapi-polyrepo-template"
+Issues = "https://github.com/ori88c-python-packages/fastapi-polyrepo-template/issues"
+
+[project.scripts]
+app = "app.main:main"
+
+[dependency-groups]
+dev = [
+    "httpx~=0.28.1",
+    "import-linter~=2.15.0",
+    "pre-commit~=4.6.2",
+    "pyright~=1.1.414",
+    "pytest~=9.1.1",
+    "pytest-asyncio~=1.4.0",
+    "ruff~=0.16.6",
+    "testcontainers~=4.15.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.9,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "integration: talks to Redis and PostgreSQL via Testcontainers",
+    "e2e: HTTP through the real app against Testcontainers",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests", "alembic"]
+# target-version is inferred from project.requires-python.
+
+[tool.ruff.format]
+quote-style = "double"
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    "F", "E", "W",        # pyflakes, pycodestyle
+    "I",                  # isort
+    "N",                  # pep8-naming
+    "D",                  # pydocstyle
+    "UP",                 # pyupgrade
+    "ANN",                # flake8-annotations
+    "S",                  # flake8-bandit
+    "B",                  # flake8-bugbear
+    "A",                  # flake8-builtins
+    "C4",                 # flake8-comprehensions
+    "DTZ",                # flake8-datetimez
+    "T20",                # flake8-print
+    "PT",                 # flake8-pytest-style
+    "RET", "SIM", "ARG",  # returns, simplify, unused arguments
+    "PTH",                # use pathlib
+    "ERA",                # commented-out code
+    "PL", "TRY", "RUF",
+]
+# Deliberately not selected: Q and COM conflict with the formatter; TC moves annotations into
+# TYPE_CHECKING blocks, which breaks Pydantic's runtime evaluation of them; EM forces every
+# exception message into a temporary variable.
+ignore = [
+    "ANN401",  # Any is legitimate for **kwargs forwarded to json.dumps
+    "TRY003",  # long, specific exception messages are worth more than the rule
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+# Config models use ALL_CAPS members by convention, including the DSN properties.
+"src/app/config/*.py" = ["N802"]
+# Tests assert, shell out to a real interpreter, compare against literals, and raise inline to
+# produce a genuine traceback rather than abstracting the raise away (TRY301).
+"tests/**/*.py" = ["S101", "S603", "PLR2004", "TRY301"]
+# Generated revisions are drafts to review, not hand-styled modules.
+"alembic/versions/*.py" = ["D", "ANN", "UP", "I"]
+
+[tool.pyright]
+pythonVersion = "3.14"
+include = ["src", "tests", "alembic"]
+# "." puts the repo root on the path so the `tests` package resolves; "src" does the same for `app`.
+extraPaths = ["src", "."]
+venvPath = "."
+venv = ".venv"
+# Strict applies to tests too. Relaxing them to "standard" was the plan, but an
+# executionEnvironments block cannot override typeCheckingMode, and the tests pass strict as
+# written, so the exemption would buy nothing.
+typeCheckingMode = "strict"
+reportMissingTypeStubs = true
+
+[tool.importlinter]
+root_package = "app"
+# Required so the fastapi/starlette bans below can see external imports at all.
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "The app is a one-directional stack"
+type = "layers"
+exhaustive = true
+containers = ["app"]
+layers = [
+    "main",                   # process entry point
+    "lifecycle",              # composition root, builds every layer below
+    "routes | middlewares | prometheus",   # HTTP, independent siblings
+    "state",                  # typed AppState; FastAPI-aware accessors for Depends
+    "services",               # business logic
+    "clients",                # data access
+    "models",                 # cross-cutting, depend on nothing
+    "logger | metrics",       # cross-cutting; independent siblings
+    "distribution",           # installed dist that provides app; logger stamps the version
+    "config",
+]
+
+[[tool.importlinter.contracts]]
+name = "Nothing below the HTTP layer knows the web framework"
+type = "forbidden"
+source_modules = [
+    "app.services",
+    "app.clients",
+    "app.logger",
+    "app.metrics",
+    "app.distribution",
+    "app.config",
+]
+forbidden_modules = ["fastapi", "starlette"]

@@ -1,0 +1,24 @@
+---
+description: OpenAPI copy is customer-facing; Google docstrings stay in the code.
+globs: src/app/routes/**/*.py,src/app/models/**/*.py,src/app/lifecycle/**/*.py,src/app/prometheus/**/*.py
+alwaysApply: false
+---
+
+# OpenAPI / Swagger
+
+Google docstrings are for developers. `/docs` is the customer contract. Do not
+let FastAPI or Pydantic dump a docstring into OpenAPI.
+
+Routes: set `summary=`, `description=`, and `operation_id=` on the decorator.
+Keep `name=` for `RouteLogger`. Public copy must not mention DI, loggers, or
+kubelet rationale. Declare non-200 with `responses=`. Path params use
+`Path(..., description=..., examples=...)`.
+
+Models: `ConfigDict(json_schema_extra={"description": "..."})` overrides the
+class docstring. Fields use `Field(description=..., examples=...)`. No ORM, no
+"this model exists for OpenAPI". Leave FastAPI's `HTTPValidationError`.
+
+`FastAPI(version=)` is `installed_app_version()`, not `ENV`.
+
+Probes stay mounted; `include_in_schema` only when `ENV` is `local` or `dev`.
+`/metrics` stays off the schema always.
