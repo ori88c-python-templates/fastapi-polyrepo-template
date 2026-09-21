@@ -168,8 +168,12 @@ A start-to-stop process-lifetime transcript (no HTTP, so no `correlation_id`) is
 
 ```bash
 uv sync
+uv run pre-commit install
 cp .env.example .env
 ```
+
+`uv sync` installs the dev tools. `uv run pre-commit install` registers the Git hook once per
+clone so commits run the checks in [Linting and type checking](#linting-and-type-checking).
 
 `.env.example` is a working local configuration for the Compose stack, not a list of
 placeholders. Copy it before `docker compose up` so Compose interpolation, Alembic, and the
