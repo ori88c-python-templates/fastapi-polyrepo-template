@@ -1,7 +1,7 @@
 # FastAPI Polyrepo Template
 
-[![CI](https://github.com/ori88c-python-packages/fastapi-polyrepo-template/actions/workflows/ci.yml/badge.svg)](https://github.com/ori88c-python-packages/fastapi-polyrepo-template/actions/workflows/ci.yml)
-[![Audit](https://github.com/ori88c-python-packages/fastapi-polyrepo-template/actions/workflows/audit.yml/badge.svg)](https://github.com/ori88c-python-packages/fastapi-polyrepo-template/actions/workflows/audit.yml)
+[![CI](https://github.com/ori88c-python-templates/fastapi-polyrepo-template/actions/workflows/ci.yml/badge.svg)](https://github.com/ori88c-python-templates/fastapi-polyrepo-template/actions/workflows/ci.yml)
+[![Audit](https://github.com/ori88c-python-templates/fastapi-polyrepo-template/actions/workflows/audit.yml/badge.svg)](https://github.com/ori88c-python-templates/fastapi-polyrepo-template/actions/workflows/audit.yml)
 
 Production-grade FastAPI template built around **dependency injection** and **zero global state**.
 A composition root wires clients, services, and loggers so tests inject dependencies instead of monkeypatching; Cursor rules keep AI edits copying this architecture. Layered import DAG, Testcontainers, Prometheus, and Kubernetes probes included.

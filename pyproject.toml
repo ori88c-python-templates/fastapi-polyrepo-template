@@ -22,9 +22,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ori88c-python-packages/fastapi-polyrepo-template"
-Repository = "https://github.com/ori88c-python-packages/fastapi-polyrepo-template"
-Issues = "https://github.com/ori88c-python-packages/fastapi-polyrepo-template/issues"
+Homepage = "https://github.com/ori88c-python-templates/fastapi-polyrepo-template"
+Repository = "https://github.com/ori88c-python-templates/fastapi-polyrepo-template"
+Issues = "https://github.com/ori88c-python-templates/fastapi-polyrepo-template/issues"
 
 [project.scripts]
 app = "app.main:main"
