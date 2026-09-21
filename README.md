@@ -146,15 +146,36 @@ are enforced by model validators.
 
 ## Logging
 
-Logging is structured JSON via [structlog](https://www.structlog.org/). `LogManager`
-receives a `LoggerConfig` in its constructor and hands out named child loggers through
-`get_child_logger(name)`. Components receive a logger as a constructor argument; they
-never reach for a global one. Uncaught exceptions (`asyncio`, FastAPI `Exception`,
-`sys.excepthook`) and uvicorn's `uvicorn.error` / `uvicorn.access` loggers are rewritten
-as those children — `context` values and the `LOGGER__ENABLE_UVICORN_ACCESS_LOGS` flag
-(default true) are documented in [src/app/logger/README.md](src/app/logger/README.md).
-A start-to-stop process-lifetime transcript (no HTTP, so no `correlation_id`) is under
-[Running locally](#running-locally).
+Every record is one JSON object, including uvicorn startup lines, so the same keys can be
+filtered in grep or in Grafana, Datadog, or Groundcover. There is no process-wide
+`structlog.configure()`; [`LogManager`](src/app/logger/README.md) stamps identity on each
+record and hands out a named child, which is what makes a test inject a logger instead of
+patching a global.
+
+```json
+{"context": "uvicorn", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:41.991882Z", "msg": "Started server process [31796]"}
+```
+
+That line has no `correlation_id`: it is process startup, not a request. The keys on it:
+
+- `context` — the component (`get_child_logger` name, a route's FastAPI `name=`, or a bridge such as `uvicorn`)
+- `env` — `local` / `dev` / `staging` / `prod`
+- `app` — fixed `APP_NAME`, not an env var
+- `instance` — hostname of this process
+- `app.version` — installed distribution version, injected by the composition root
+- `level`, `ts` (UTC, `Z` suffix), `msg`
+
+An HTTP line also carries `correlation_id`, bound by `CorrelationIdMiddleware` so the route,
+service, and client share it.
+
+`LogManager` receives a `LoggerConfig` and hands out children through `get_child_logger(name)`.
+Components take a logger in `__init__` and never call a global one.
+
+Uncaught `asyncio`, FastAPI `Exception`, and `sys.excepthook` paths, plus uvicorn's
+`uvicorn.error` / `uvicorn.access` loggers, are rewritten onto those children. `context` values
+and `LOGGER__ENABLE_UVICORN_ACCESS_LOGS` are documented in
+[src/app/logger/README.md](src/app/logger/README.md). A start-to-stop process-lifetime transcript
+is under [Running locally](#running-locally).
 
 ## Running locally
 
