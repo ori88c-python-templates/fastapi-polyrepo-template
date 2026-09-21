@@ -1,5 +1,6 @@
 """Wrapper around a SQLAlchemy async engine with explicit lifecycle hooks."""
 
+from collections.abc import Callable
 from typing import Final
 
 from sqlalchemy import text
@@ -31,7 +32,7 @@ class PostgresClient:
         config: PostgresConfig,
         logger: FilteringBoundLogger,
         *,
-        engine: AsyncEngine | None = None,
+        engine_creator: Callable[..., AsyncEngine] | None = None,
     ) -> None:
         """Build the wrapper. Does not connect.
 
@@ -40,23 +41,22 @@ class PostgresClient:
                 and never logged.
             logger: Child logger named after this class, injected by the composition
                 root so this client does not build its own.
-            engine: Optional pre-built engine. Production leaves this unset; tests
-                pass a stand-in so nothing binds a real socket.
+            engine_creator: Optional callable with the same call as
+                ``create_async_engine``. Production leaves this unset, so the
+                client builds the engine itself. Tests pass one so construction
+                does not bind a socket and so the URL and pool kwargs are visible.
         """
         self._logger: Final = logger
         # Pool size and overflow stay at SQLAlchemy's defaults (5 / 10); clones
         # should size them for the node's cores. ``pool_pre_ping`` detects a
         # dropped connection after a network hiccup. Alembic uses ``NullPool``
         # and must not copy these kwargs.
-        self._engine: Final = (
-            engine
-            if engine is not None
-            else create_async_engine(
-                str(config.DSN),
-                connect_args=config.connect_args,
-                pool_pre_ping=True,
-                pool_timeout=config.POOL_TIMEOUT_SECONDS,
-            )
+        create_engine = engine_creator if engine_creator is not None else create_async_engine
+        self._engine: Final = create_engine(
+            str(config.DSN),
+            connect_args=config.connect_args,
+            pool_pre_ping=True,
+            pool_timeout=config.POOL_TIMEOUT_SECONDS,
         )
         self._session_factory: Final = async_sessionmaker(
             self._engine,
