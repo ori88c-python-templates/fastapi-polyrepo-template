@@ -21,7 +21,7 @@ uv run pytest tests/integration
 uv run pytest tests/e2e
 ```
 
-`testpaths` in `pyproject.toml` is `tests`, so all three trees are collected. Integration and e2e
+`testpaths` in `pyproject.toml` lists `tests/unit`, then `tests/integration`, then `tests/e2e`, so a bare `uv run pytest` collects in that order. Integration and e2e
 need Docker Desktop; those tests skip if the daemon is down. `uv run pytest tests/unit` never starts
 a container.
 
