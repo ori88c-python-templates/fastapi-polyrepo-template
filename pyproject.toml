@@ -1,7 +1,7 @@
 [project]
 name = "fastapi-polyrepo-template"
-version = "1.0.1"
-description = "A modern Python polyrepo template built around dependency injection and zero global state."
+version = "1.0.2"
+description = "Production-grade FastAPI polyrepo template built around dependency injection and zero global state."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
