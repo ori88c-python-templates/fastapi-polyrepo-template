@@ -5,10 +5,9 @@ other, and the only place that knows the order resources must start and stop in.
 
 ## Belongs here
 
-- `LifecycleManager`, which builds the application (`create_app`) and installs the
-  process `sys.excepthook` (`install_sys_excepthook`) and the uvicorn error and
-  access bridges (`install_uvicorn_error_logging`,
-  `install_uvicorn_access_logging`). Callers import
+- `LifecycleManager`, which builds the application (`create_app`) and installs
+  process-wide logging (`install_process_logging`: `sys.excepthook` and the
+  uvicorn error and access bridges). Callers import
   `from app.lifecycle import LifecycleManager`.
 - The startup and shutdown hooks that fill and later tear down `AppState`.
 
@@ -28,8 +27,7 @@ is what makes the rest of the codebase free of global state and testable without
 the same two things, the configuration and a logger. It builds its own `LogManager` and child logger
 in `__init__`, so each step can report what it is doing without that being threaded through six
 signatures. `main.py` builds exactly one `LifecycleManager`, calls
-`install_sys_excepthook()` then `install_uvicorn_error_logging()` then
-`install_uvicorn_access_logging()`, then `create_app()`. `create_app` registers
+`install_process_logging()`, then `create_app()`. `create_app` registers
 `make_unhandled_http_exception_handler` on `Exception` with the same `uvicorn`
 child the error bridge uses. The asyncio hook is installed for the lifespan of
 the running loop. Access install is a no-op when

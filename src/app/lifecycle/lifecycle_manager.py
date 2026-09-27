@@ -13,14 +13,10 @@ from app.config import REDOC_ENDPOINT, SWAGGER_DOCS_ENDPOINT, AppConfig
 from app.distribution import installed_app_version
 from app.logger import (
     LogManager,
+    install_uvicorn_access_logging,
+    install_uvicorn_error_logging,
     make_asyncio_exception_handler,
     make_sys_excepthook,
-)
-from app.logger import (
-    install_uvicorn_access_logging as _install_uvicorn_access_logging,
-)
-from app.logger import (
-    install_uvicorn_error_logging as _install_uvicorn_error_logging,
 )
 from app.metrics import FeatureFlagMetrics
 from app.middlewares import (
@@ -125,41 +121,35 @@ class LifecycleManager:
 
         return app
 
-    def install_sys_excepthook(self) -> None:
-        """Replace ``sys.excepthook`` with a child logger named ``sys.excepthook``.
+    def install_process_logging(self) -> None:
+        """Install process-wide logging before the server starts.
 
-        Called from ``main`` so tests that only ``create_app`` do not take over
-        the process hook. ``KeyboardInterrupt`` and ``SystemExit`` still use the
-        interpreter default.
+        ``sys.excepthook`` and the uvicorn error and access bridges are
+        process-wide, so ``main`` calls this rather than ``create_app``. Tests
+        that only build an app must not replace the process hook. The asyncio
+        handler is separate: it needs a running loop and is installed for the
+        lifespan.
+
+        ``sys.excepthook`` uses a child named ``sys.excepthook``.
+        ``KeyboardInterrupt`` and ``SystemExit`` stay on the interpreter default.
+
+        ``uvicorn.error`` is bridged onto the same ``uvicorn`` child the HTTP 500
+        hook uses, including the ASGI exception filter.
+
+        ``uvicorn.access`` is bridged only when ``ENABLE_UVICORN_ACCESS_LOGS`` is
+        true. ``main`` still passes that flag as ``access_log`` so a disabled
+        flag does not leave an empty logger printing via lastResort.
         """
         sys.excepthook = make_sys_excepthook(
             self._log_manager.get_child_logger(_SYS_EXCEPTHOOK_LOGGER_NAME),
         )
-
-    def install_uvicorn_error_logging(self) -> None:
-        """Bridge ``uvicorn.error`` into a child logger named ``uvicorn``.
-
-        Called from ``main`` so tests that only ``create_app`` do not change
-        process logging. Attaches the ASGI exception filter and a handler on
-        the same child the HTTP 500 hook uses.
-        """
-        _install_uvicorn_error_logging(
+        install_uvicorn_error_logging(
             self._log_manager.get_child_logger(_UVICORN_LOGGER_NAME),
         )
-
-    def install_uvicorn_access_logging(self) -> None:
-        """Bridge ``uvicorn.access`` into a child logger named ``uvicorn.access``.
-
-        Called from ``main`` so tests that only ``create_app`` do not change
-        process logging. No-op when ``ENABLE_UVICORN_ACCESS_LOGS`` is false;
-        ``main`` still passes that flag as ``access_log`` so uvicorn does not
-        keep an empty logger that would print via lastResort.
-        """
-        if not self._app_config.logger.ENABLE_UVICORN_ACCESS_LOGS:
-            return
-        _install_uvicorn_access_logging(
-            self._log_manager.get_child_logger(_UVICORN_ACCESS_LOGGER_NAME),
-        )
+        if self._app_config.logger.ENABLE_UVICORN_ACCESS_LOGS:
+            install_uvicorn_access_logging(
+                self._log_manager.get_child_logger(_UVICORN_ACCESS_LOGGER_NAME),
+            )
 
     def _build_app_state(self) -> AppState:
         """Construct every long-lived object, in dependency order.

@@ -34,9 +34,7 @@ def main() -> None:
     # satisfied at runtime.
     app_config = AppConfig()  # pyright: ignore[reportCallIssue]
     lifecycle = LifecycleManager(app_config)
-    lifecycle.install_sys_excepthook()
-    lifecycle.install_uvicorn_error_logging()
-    lifecycle.install_uvicorn_access_logging()
+    lifecycle.install_process_logging()
     app = lifecycle.create_app()
 
     uvicorn.run(

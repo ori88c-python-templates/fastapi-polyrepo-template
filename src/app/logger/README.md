@@ -91,7 +91,7 @@ event):
 
 - `context="uvicorn"` — `uvicorn.error` (startup, shutdown, warnings, errors,
   critical). That logger is not error-only. Same child as the HTTP 500 hook.
-  `LifecycleManager.install_uvicorn_error_logging()` (from `main`, not `create_app`)
+  `LifecycleManager.install_process_logging()` (from `main`, not `create_app`)
   attaches `UvicornLogHandler` and the ASGI filter with `propagate=False`, and
   sets the stdlib logger to DEBUG. `uvicorn.run(..., log_config=None)` skips
   uvicorn's `dictConfig` that would otherwise set that level; without it, root
@@ -102,7 +102,7 @@ event):
   `Application shutdown complete.`, `Finished server process`.
 - `context="uvicorn.access"` — `uvicorn.access` when
   `LOGGER__ENABLE_UVICORN_ACCESS_LOGS` is true (default).
-  `LifecycleManager.install_uvicorn_access_logging()` is a no-op when the flag is
+  `LifecycleManager.install_process_logging()` skips the access bridge when the flag is
   false; `main` also passes `access_log=` so uvicorn emits nothing. Access is
   logged on `http.response.start` while `CorrelationIdMiddleware` still holds
   contextvars, so `correlation_id` is merged automatically. Install also sets
