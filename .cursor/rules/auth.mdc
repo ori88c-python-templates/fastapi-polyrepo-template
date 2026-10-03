@@ -15,6 +15,9 @@ Identity is request-scoped. A route `Depends` on claims or session info and pass
 `user_id` (and other fields the use case needs) into the service **method**. Do not
 put identity on a service `__init__`. Do not import `Request` in `services/`.
 
+The shipped flag service already takes `UserDetails` from `Depends(get_user_details)`
+on the method, not on `__init__`. `X-Tenant-ID` and `X-User-ID` are not authentication.
+
 ```python
 # BAD - request identity on a process-wide service
 class OrdersService:

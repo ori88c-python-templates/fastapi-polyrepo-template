@@ -6,13 +6,16 @@ from unittest.mock import AsyncMock
 
 from httpx import AsyncClient
 
+from app.config import TENANT_ID_HEADER, USER_ID_HEADER
 from app.models.feature_flags import FeatureFlag
 from tests.unit.logger.log_manager.helpers import read_records
 
+_HEADERS = {TENANT_ID_HEADER: "tenant-a", USER_ID_HEADER: "user-1"}
 _FLAG = FeatureFlag(
     name="dark_mode",
     enabled=True,
     updated_at=datetime(2026, 1, 15, 12, 0, tzinfo=UTC),
+    updated_by_user_id="user-1",
 )
 
 
@@ -24,7 +27,7 @@ async def test_get_emits_the_explicit_route_name_as_context(
     """GET logs with ``context`` equal to the decorator's ``name=``, not the function name."""
     feature_flag_service.get_flag.return_value = _FLAG
 
-    await client.get("/api/v1/feature-flags/dark_mode")
+    await client.get("/api/v1/feature-flags/dark_mode", headers=_HEADERS)
 
     (record,) = read_records(sink)
     assert record["context"] == "feature-flag-router.get"
@@ -40,7 +43,11 @@ async def test_set_emits_the_explicit_route_name_as_context(
     """PUT uses a distinct route name so get and set stay distinguishable in logs."""
     feature_flag_service.set_flag.return_value = _FLAG
 
-    await client.put("/api/v1/feature-flags/dark_mode", json={"enabled": True})
+    await client.put(
+        "/api/v1/feature-flags/dark_mode",
+        json={"enabled": True},
+        headers=_HEADERS,
+    )
 
     (record,) = read_records(sink)
     assert record["context"] == "feature-flag-router.set"

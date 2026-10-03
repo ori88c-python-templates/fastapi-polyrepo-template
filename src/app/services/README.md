@@ -32,3 +32,5 @@ A service declares every dependency in its `__init__`: the clients it needs, a c
 named after itself, and any Prometheus collectors it increments (`FeatureFlagMetrics`).
 The composition root constructs those once and stores the service on `AppServices`. A
 service never constructs a client, reaches for a global, or builds its own logger.
+Request identity is not a constructor argument. `FeatureFlagService.get_flag` and
+`set_flag` take a `UserDetails` the route already resolved.

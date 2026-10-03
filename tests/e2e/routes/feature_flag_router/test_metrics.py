@@ -6,6 +6,7 @@ import pytest
 from httpx import AsyncClient
 
 from app.config import METRICS_ENDPOINT
+from tests.e2e.routes.feature_flag_router.helpers import caller_headers
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -37,8 +38,8 @@ async def test_put_then_get_increments_feature_flag_and_http_metrics(
     """Business counters and default HTTP series share the scrape path."""
     before = (await client.get(METRICS_ENDPOINT)).text
 
-    created = await client.put(_PATH, json={"enabled": True})
-    loaded = await client.get(_PATH)
+    created = await client.put(_PATH, json={"enabled": True}, headers=caller_headers())
+    loaded = await client.get(_PATH, headers=caller_headers())
     metrics = await client.get(METRICS_ENDPOINT)
 
     assert created.status_code == HTTPStatus.OK

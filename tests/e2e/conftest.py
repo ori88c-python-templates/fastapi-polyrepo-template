@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncGenerator, Callable, Mapping
+from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
@@ -61,11 +62,22 @@ def pytest_asyncio_loop_factories(
 
 
 @pytest.fixture(scope="session")
-def app(throwaway_stores: ThrowawayStores) -> FastAPI:
+def e2e_log_stream() -> BytesIO:
+    """Buffer every log line from the session application.
+
+    Returns:
+        The stream passed into ``LifecycleManager``. Tests read slices of it.
+    """
+    return BytesIO()
+
+
+@pytest.fixture(scope="session")
+def app(throwaway_stores: ThrowawayStores, e2e_log_stream: BytesIO) -> FastAPI:
     """Build the real application pointed at the session containers.
 
     Args:
         throwaway_stores: Session Redis and PostgreSQL after Alembic has run.
+        e2e_log_stream: Buffer that receives this application's JSON log lines.
 
     Returns:
         An application from ``LifecycleManager``. Lifespan has not run yet.
@@ -74,7 +86,7 @@ def app(throwaway_stores: ThrowawayStores) -> FastAPI:
         redis=throwaway_stores.redis,
         postgres=throwaway_stores.postgres,
     )
-    return LifecycleManager(config).create_app()
+    return LifecycleManager(config, stream=e2e_log_stream).create_app()
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")

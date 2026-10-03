@@ -12,6 +12,8 @@ from typing import Final
 APP_NAME: Final = "fastapi-polyrepo-template"
 REQUEST_ID_HEADER: Final = "X-Request-ID"
 CORRELATION_ID_HEADER: Final = "X-Correlation-ID"
+TENANT_ID_HEADER: Final = "X-Tenant-ID"
+USER_ID_HEADER: Final = "X-User-ID"
 CORRELATION_ID_STATE_KEY: Final = "correlation_id"
 METRICS_ENDPOINT: Final = "/metrics"
 LIVEZ_ENDPOINT: Final = "/livez"

@@ -4,7 +4,7 @@ import asyncio
 import sys
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Final
+from typing import BinaryIO, Final
 
 from fastapi import FastAPI
 
@@ -48,7 +48,9 @@ _UVICORN_ACCESS_LOGGER_NAME: Final = "uvicorn.access"
 _ASYNCIO_LOGGER_NAME: Final = "asyncio"
 _SYS_EXCEPTHOOK_LOGGER_NAME: Final = "sys.excepthook"
 _OPENAPI_TITLE: Final = "FastAPI Polyrepo Template"
-_OPENAPI_DESCRIPTION: Final = "Read and update named feature flags."
+_OPENAPI_DESCRIPTION: Final = (
+    "Read and update feature flags for the tenant named by the X-Tenant-ID header."
+)
 
 
 class LifecycleManager:
@@ -63,7 +65,7 @@ class LifecycleManager:
     is noise. Built once, in ``main``.
     """
 
-    def __init__(self, app_config: AppConfig) -> None:
+    def __init__(self, app_config: AppConfig, *, stream: BinaryIO | None = None) -> None:
         """Prepare the manager and the logging every later step reports through.
 
         The ``LogManager`` is built here rather than during ``create_app`` because it is
@@ -73,6 +75,8 @@ class LifecycleManager:
         Args:
             app_config: Fully validated configuration, built by the caller so that a bad
                 environment fails before anything is constructed.
+            stream: Binary stream for ``LogManager``. Defaults to stdout. End-to-end
+                tests pass a buffer so they can read request logs. Production omits it.
         """
         self._app_config: Final = app_config
         self._app_version: Final = installed_app_version()
@@ -80,6 +84,7 @@ class LifecycleManager:
             app_config.logger,
             env=app_config.ENV,
             app_version=self._app_version,
+            stream=stream,
         )
         self._logger: Final = self._log_manager.get_child_logger(_LIFECYCLE_LOGGER_NAME)
         self._prometheus: Final = PrometheusManager()

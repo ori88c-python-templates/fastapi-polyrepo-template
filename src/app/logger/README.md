@@ -47,21 +47,24 @@ unrelated to the decorator's `name=`.
 @feature_flag_router.get("/{name}", name="feature-flag-router.get")
 async def get_feature_flag(
     name: str,
+    user_details: UserDetailsDep,
     service: Annotated[FeatureFlagService, Depends(get_feature_flag_service)],
     logger: RouteLogger,
 ) -> FeatureFlag:
     logger.info("feature_flag.get", name=name)
-    return await service.get_flag(name)
+    return await service.get_flag(name, user_details)
 ```
 
 ```json
-{"name": "dark_mode", "context": "feature-flag-router.get", "level": "info", "ts": "2026-09-11T13:12:00.000000Z", "msg": "feature_flag.get", "correlation_id": "6f1d3c2a-9b4e-4c11-8a2f-0e7b1d4a9c33", "env": "dev", "app": "fastapi-polyrepo-template", "instance": "api-1", "app.version": "1.0.0"}
+{"name": "dark_mode", "context": "feature-flag-router.get", "level": "info", "ts": "2026-09-11T13:12:00.000000Z", "msg": "feature_flag.get", "correlation_id": "6f1d3c2a-9b4e-4c11-8a2f-0e7b1d4a9c33", "tenant_id": "tenant-a", "user_id": "user-1", "env": "dev", "app": "fastapi-polyrepo-template", "instance": "api-1", "app.version": "1.0.0"}
 ```
 
 `correlation_id` is bound by `CorrelationIdMiddleware` for the request, not by the route. The
 processor chain already runs `structlog.contextvars.merge_contextvars` first, so every child
-logger on that request — route, service, client — includes the same id. `env`, `app`,
-`instance`, and `app.version` are stamped by `LogManager` on every record.
+logger on that request — route, service, client — includes the same id. `tenant_id` and
+`user_id` on a feature-flag line are bound by `get_user_details` for that request, not passed
+on the `info()` call. `env`, `app`, `instance`, and `app.version` are stamped by `LogManager`
+on every record.
 
 This is enforced by [.cursor/rules/logging.mdc](../../../.cursor/rules/logging.mdc).
 

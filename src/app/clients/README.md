@@ -9,7 +9,7 @@ Clients for external resources: the application's data access layer.
   APIs.
 
 Callers outside this package import from [`__init__.py`](__init__.py):
-`from app.clients import PostgresClient, RedisClient`. The PostgreSQL subpackage
+`from app.clients import PostgresClient, RedisClient, create_redis_key`. The PostgreSQL subpackage
 also re-exports `FeatureFlagRow` for the service layer:
 `from app.clients.postgres import FeatureFlagRow`. Modules inside a client
 package still import siblings by module path.

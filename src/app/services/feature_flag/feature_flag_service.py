@@ -5,21 +5,24 @@ from typing import Final
 
 from structlog.typing import FilteringBoundLogger
 
-from app.clients import PostgresClient, RedisClient
+from app.clients import PostgresClient, RedisClient, create_redis_key
 from app.clients.postgres import FeatureFlagRow
 from app.config import FeatureFlagConfig
 from app.metrics import FeatureFlagMetrics
 from app.models.feature_flags import FeatureFlag
+from app.models.user_details import UserDetails
 from app.services.feature_flag.feature_flag_errors import FeatureFlagNotFoundError
 
 _CACHE_KEY_PREFIX: Final = "feature_flag"
 
 
 class FeatureFlagService:
-    """Read and write named flags, with Redis as a TTL cache in front of PostgreSQL.
+    """Read and write tenant-scoped flags, with Redis as a TTL cache in front of PostgreSQL.
 
     No start or stop: the clients it uses already own those hooks. Constructed
-    once by the composition root and stored on ``AppServices``.
+    once by the composition root and stored on ``AppServices``. Caller identity
+    is a method argument, not a constructor dependency: one instance serves
+    every tenant.
     """
 
     def __init__(
@@ -47,25 +50,28 @@ class FeatureFlagService:
         self._metrics: Final = metrics
         self._cache_ttl_seconds: Final = config.CACHE_TTL_SECONDS
 
-    async def get_flag(self, name: str) -> FeatureFlag:
-        """Return a flag, preferring Redis and falling back to PostgreSQL.
+    async def get_flag(self, name: str, user_details: UserDetails) -> FeatureFlag:
+        """Return a flag for the caller's tenant, preferring Redis.
 
         A cache hit never touches the database. A miss loads the row, stores the
-        full JSON (so ``updated_at`` survives a hit), and returns it. A missing
-        row is an error, not ``enabled=False``: an unknown flag is not the same
-        as a disabled one.
+        full JSON (so ``updated_at`` and ``updated_by_user_id`` survive a hit),
+        and returns it. A missing row is an error, not ``enabled=False``: an
+        unknown flag is not the same as a disabled one. A row stored for another
+        tenant is missing for this caller.
 
         Args:
-            name: Unique identifier of the flag.
+            name: Identifier of the flag within the caller's tenant.
+            user_details: Caller. ``tenant_id`` selects the row. ``user_id`` is
+                not part of the lookup.
 
         Returns:
             The flag as the API speaks it.
 
         Raises:
-            FeatureFlagNotFoundError: If the name is in neither Redis nor
-                PostgreSQL.
+            FeatureFlagNotFoundError: If this tenant has no row for ``name`` in
+                Redis or PostgreSQL.
         """
-        cache_key = self._cache_key(name)
+        cache_key = self._cache_key(user_details.tenant_id, name)
         self._metrics.reads_total.inc()
         cached = await self._redis.raw.get(cache_key)
         if cached is not None:
@@ -74,7 +80,7 @@ class FeatureFlagService:
 
         self._logger.info("feature_flag.cache.miss", name=name)
         async with self._postgres.create_session() as session:
-            row = await session.get(FeatureFlagRow, name)
+            row = await session.get(FeatureFlagRow, (user_details.tenant_id, name))
             if row is None:
                 self._logger.info("feature_flag.missing", name=name)
                 raise FeatureFlagNotFoundError(name)
@@ -83,35 +89,50 @@ class FeatureFlagService:
         await self._write_cache(cache_key, flag)
         return flag
 
-    async def set_flag(self, name: str, enabled: bool) -> FeatureFlag:
-        """Insert or update a flag in PostgreSQL, then refresh the Redis entry.
+    async def set_flag(self, name: str, enabled: bool, user_details: UserDetails) -> FeatureFlag:
+        """Insert or update a flag for the caller's tenant, then refresh Redis.
 
         The ORM path is ``session.get`` plus ``add`` or in-place mutation, not a
         dialect-specific upsert, so the write stays in mapped-class terms.
         Redis is updated (not only deleted) after commit so the next read does
-        not stampede the database.
+        not stampede the database. ``updated_by_user_id`` is the caller's user
+        id on both insert and update.
 
         Args:
-            name: Unique identifier of the flag.
+            name: Identifier of the flag within the caller's tenant.
             enabled: The value to persist.
+            user_details: Caller. ``tenant_id`` selects the row.
+                ``user_id`` is stored as the last editor.
 
         Returns:
             The flag as stored, including the new ``updated_at``.
         """
         now = datetime.now(UTC)
         async with self._postgres.create_session() as session:
-            row = await session.get(FeatureFlagRow, name)
+            row = await session.get(FeatureFlagRow, (user_details.tenant_id, name))
             if row is None:
                 session.add(
-                    FeatureFlagRow(name=name, value=enabled, updated_at=now),
+                    FeatureFlagRow(
+                        tenant_id=user_details.tenant_id,
+                        name=name,
+                        value=enabled,
+                        updated_at=now,
+                        updated_by_user_id=user_details.user_id,
+                    ),
                 )
             else:
                 row.value = enabled
                 row.updated_at = now
+                row.updated_by_user_id = user_details.user_id
             await session.commit()
 
-        flag = FeatureFlag(name=name, enabled=enabled, updated_at=now)
-        await self._write_cache(self._cache_key(name), flag)
+        flag = FeatureFlag(
+            name=name,
+            enabled=enabled,
+            updated_at=now,
+            updated_by_user_id=user_details.user_id,
+        )
+        await self._write_cache(self._cache_key(user_details.tenant_id, name), flag)
         self._metrics.writes_total.inc()
         self._logger.info("feature_flag.written", name=name, enabled=enabled)
         return flag
@@ -122,7 +143,8 @@ class FeatureFlagService:
         Args:
             cache_key: Already-prefixed Redis key.
             flag: The domain model to serialise. JSON rather than a lone boolean
-                so a cache hit can still return ``updated_at``.
+                so a cache hit can still return ``updated_at`` and
+                ``updated_by_user_id``.
         """
         await self._redis.raw.set(
             cache_key,
@@ -131,17 +153,18 @@ class FeatureFlagService:
         )
 
     @staticmethod
-    def _cache_key(name: str) -> str:
-        """Build the Redis key for ``name``.
+    def _cache_key(tenant_id: str, name: str) -> str:
+        """Build the Redis key for one tenant's flag.
 
         Args:
-            name: Unique identifier of the flag.
+            tenant_id: Tenant the flag belongs to.
+            name: Identifier of the flag within that tenant.
 
         Returns:
-            A namespaced key so feature flags cannot collide with other Redis
-            users of the same database index.
+            A length-prefixed key so a colon inside either part cannot merge
+            this flag with another tenant's row.
         """
-        return f"{_CACHE_KEY_PREFIX}:{name}"
+        return create_redis_key(_CACHE_KEY_PREFIX, tenant_id, name)
 
 
 def _row_to_flag(row: FeatureFlagRow) -> FeatureFlag:
@@ -151,6 +174,11 @@ def _row_to_flag(row: FeatureFlagRow) -> FeatureFlag:
         row: Loaded ORM instance. ``value`` becomes ``enabled``.
 
     Returns:
-        The equivalent domain object.
+        The equivalent domain object. The tenant stays off the API model.
     """
-    return FeatureFlag(name=row.name, enabled=row.value, updated_at=row.updated_at)
+    return FeatureFlag(
+        name=row.name,
+        enabled=row.value,
+        updated_at=row.updated_at,
+        updated_by_user_id=row.updated_by_user_id,
+    )

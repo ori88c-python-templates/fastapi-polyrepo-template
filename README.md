@@ -14,6 +14,7 @@ A composition root wires clients, services, and loggers so tests inject dependen
 - [Layout](#layout)
 - [Configuration](#configuration)
 - [Logging](#logging)
+- [Demonstrative Feature - Feature Flags](#demonstrative-feature---feature-flags)
 - [Running locally](#running-locally)
 - [Schema migrations](#schema-migrations)
 - [Container image](#container-image)
@@ -177,6 +178,34 @@ and `LOGGER__ENABLE_UVICORN_ACCESS_LOGS` are documented in
 [src/app/logger/README.md](src/app/logger/README.md). A start-to-stop process-lifetime transcript
 is under [Running locally](#running-locally).
 
+## Demonstrative Feature - Feature Flags
+
+`FeatureFlagService` is the sample. `GET` and `PUT` `/api/v1/feature-flags/{name}`
+live on [`feature_flag_router`](src/app/routes/feature_flag_router.py). A flag
+belongs to the tenant in `X-Tenant-ID`. Two tenants can store the same name with
+different values. The composite primary key is `(tenant_id, name)`. A write
+records `X-User-ID` as `updated_by_user_id`.
+
+These headers are not authentication. Probes and `GET /metrics` do not require them.
+Omitting either header on a feature-flag call is `422`.
+
+### Logging
+
+A feature-flag request also carries `tenant_id` and `user_id`. `get_user_details`
+is a `Depends` factory and an async generator: FastAPI enters it before the
+handler and exits it after the response, and the body binds those two ids with
+structlog context variables. The route logger and the service logger both pick
+them up because they run inside that call. Do not add middleware for
+`X-Tenant-ID` or `X-User-ID`, and do not pass those ids on each `info()`.
+
+```json
+{"context": "feature-flag-router.get", "env": "local", "app": "fastapi-polyrepo-template", "instance": "api-1", "app.version": "1.0.0", "level": "info", "ts": "2026-10-03T00:00:00.000000Z", "msg": "feature_flag.get", "name": "dark_mode", "correlation_id": "6f1d3c2a-9b4e-4c11-8a2f-0e7b1d4a9c33", "tenant_id": "tenant-a", "user_id": "user-1"}
+```
+
+Those two fields are present for the whole request, including the service log. A unit
+or integration test that calls `FeatureFlagService` directly never enters `get_user_details`, so
+the ids are absent there.
+
 ## Running locally
 
 ### Requirements
@@ -220,28 +249,44 @@ unprefixed `GET /livez` and `GET /readyz`. Prometheus scrapes unprefixed `GET /m
 <summary>Example stdout from <code>uv run app</code> (structured JSON, one object per line)</summary>
 
 ```
-{"context": "LifecycleManager", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:41.793853Z", "msg": "lifecycle.app.creating"}
-{"context": "LifecycleManager", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:41.794233Z", "msg": "lifecycle.app_state.building"}
-{"context": "LifecycleManager", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:41.949405Z", "msg": "lifecycle.middlewares.registering"}
-{"context": "LifecycleManager", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:41.949974Z", "msg": "lifecycle.routers.registering"}
-{"context": "uvicorn", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:41.991882Z", "msg": "Started server process [31796]"}
-{"context": "uvicorn", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:41.992280Z", "msg": "Waiting for application startup."}
-{"context": "LifecycleManager", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:41.992882Z", "msg": "lifecycle.resources.initializing"}
-{"context": "RedisClient", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:41.993230Z", "msg": "redis.starting"}
-{"context": "RedisClient", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:42.000426Z", "msg": "redis.started"}
-{"context": "PostgresClient", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:42.000736Z", "msg": "postgres.starting"}
-{"context": "PostgresClient", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:42.053945Z", "msg": "postgres.started"}
-{"context": "uvicorn", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:42.054500Z", "msg": "Application startup complete."}
-{"context": "uvicorn", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:42.055343Z", "msg": "Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)"}
-{"context": "uvicorn", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:57.858121Z", "msg": "Shutting down"}
-{"context": "uvicorn", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:57.965785Z", "msg": "Waiting for application shutdown."}
-{"context": "LifecycleManager", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:57.966757Z", "msg": "lifecycle.resources.tearing_down"}
-{"context": "PostgresClient", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:57.967397Z", "msg": "postgres.stopping"}
-{"context": "PostgresClient", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:57.969456Z", "msg": "postgres.stopped"}
-{"context": "RedisClient", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:57.970018Z", "msg": "redis.stopping"}
-{"context": "RedisClient", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:57.970585Z", "msg": "redis.stopped"}
-{"context": "uvicorn", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:57.971017Z", "msg": "Application shutdown complete."}
-{"context": "uvicorn", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "1.0.0", "level": "info", "ts": "2026-09-22T05:30:57.971357Z", "msg": "Finished server process [31796]"}
+{"context": "LifecycleManager", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:33:23.709739Z", "msg": "lifecycle.app.creating"}
+{"context": "LifecycleManager", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:33:23.710087Z", "msg": "lifecycle.app_state.building"}
+{"context": "LifecycleManager", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:33:23.862027Z", "msg": "lifecycle.middlewares.registering"}
+{"context": "LifecycleManager", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:33:23.862596Z", "msg": "lifecycle.routers.registering"}
+{"context": "uvicorn", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:33:23.904129Z", "msg": "Started server process [24040]"}
+{"context": "uvicorn", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:33:23.904485Z", "msg": "Waiting for application startup."}
+{"context": "LifecycleManager", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:33:23.904972Z", "msg": "lifecycle.resources.initializing"}
+{"context": "RedisClient", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:33:23.905215Z", "msg": "redis.starting"}
+{"context": "RedisClient", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:33:23.912204Z", "msg": "redis.started"}
+{"context": "PostgresClient", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:33:23.912463Z", "msg": "postgres.starting"}
+{"context": "PostgresClient", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:33:23.949127Z", "msg": "postgres.started"}
+{"context": "uvicorn", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:33:23.949550Z", "msg": "Application startup complete."}
+{"context": "uvicorn", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:33:23.950152Z", "msg": "Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)"}
+{"context": "uvicorn.access", "correlation_id": "7e92e4a3-84e5-49c5-9c79-d442b4c6b51a", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:33:33.891119Z", "msg": "127.0.0.1:60414 - \"GET /docs HTTP/1.1\" 200"}
+{"context": "uvicorn.access", "correlation_id": "9ad9f3aa-873e-4c8b-8b81-072bd2d8ed11", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:33:34.388202Z", "msg": "127.0.0.1:60414 - \"GET /openapi.json HTTP/1.1\" 200"}
+{"context": "feature-flag-router.get", "name": "x", "correlation_id": "d2ef9de2-2eb7-42bd-8cb9-ba6a9456e632", "user_id": "x", "tenant_id": "x", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:34:00.165073Z", "msg": "feature_flag.get"}
+{"context": "FeatureFlagService", "name": "x", "correlation_id": "d2ef9de2-2eb7-42bd-8cb9-ba6a9456e632", "user_id": "x", "tenant_id": "x", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:34:00.166976Z", "msg": "feature_flag.cache.miss"}
+{"context": "FeatureFlagService", "name": "x", "correlation_id": "d2ef9de2-2eb7-42bd-8cb9-ba6a9456e632", "user_id": "x", "tenant_id": "x", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:34:00.177325Z", "msg": "feature_flag.missing"}
+{"context": "uvicorn.access", "correlation_id": "d2ef9de2-2eb7-42bd-8cb9-ba6a9456e632", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:34:00.179031Z", "msg": "127.0.0.1:60415 - \"GET /api/v1/feature-flags/x HTTP/1.1\" 404"}
+{"context": "feature-flag-router.set", "name": "x", "enabled": true, "correlation_id": "088f3afb-c122-454f-ab6d-76da5f47773c", "user_id": "x", "tenant_id": "x", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:34:21.235407Z", "msg": "feature_flag.set"}
+{"context": "FeatureFlagService", "name": "x", "enabled": true, "correlation_id": "088f3afb-c122-454f-ab6d-76da5f47773c", "user_id": "x", "tenant_id": "x", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:34:21.248037Z", "msg": "feature_flag.written"}
+{"context": "uvicorn.access", "correlation_id": "088f3afb-c122-454f-ab6d-76da5f47773c", "user_id": "x", "tenant_id": "x", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:34:21.248605Z", "msg": "127.0.0.1:60444 - \"PUT /api/v1/feature-flags/x HTTP/1.1\" 200"}
+{"context": "feature-flag-router.get", "name": "x", "correlation_id": "47addbb1-0574-42b5-9b90-aa8284d8178d", "user_id": "x", "tenant_id": "x", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:34:32.960768Z", "msg": "feature_flag.get"}
+{"context": "FeatureFlagService", "name": "x", "correlation_id": "47addbb1-0574-42b5-9b90-aa8284d8178d", "user_id": "x", "tenant_id": "x", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:34:32.962795Z", "msg": "feature_flag.cache.hit"}
+{"context": "uvicorn.access", "correlation_id": "47addbb1-0574-42b5-9b90-aa8284d8178d", "user_id": "x", "tenant_id": "x", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:34:32.963633Z", "msg": "127.0.0.1:60445 - \"GET /api/v1/feature-flags/x HTTP/1.1\" 200"}
+{"context": "feature-flag-router.get", "name": "x", "correlation_id": "c9a6fd06-bc0e-47d7-8991-c27b2570a795", "user_id": "x", "tenant_id": "y", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:34:43.520575Z", "msg": "feature_flag.get"}
+{"context": "FeatureFlagService", "name": "x", "correlation_id": "c9a6fd06-bc0e-47d7-8991-c27b2570a795", "user_id": "x", "tenant_id": "y", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:34:43.522752Z", "msg": "feature_flag.cache.miss"}
+{"context": "FeatureFlagService", "name": "x", "correlation_id": "c9a6fd06-bc0e-47d7-8991-c27b2570a795", "user_id": "x", "tenant_id": "y", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:34:43.529137Z", "msg": "feature_flag.missing"}
+{"context": "uvicorn.access", "correlation_id": "c9a6fd06-bc0e-47d7-8991-c27b2570a795", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:34:43.531848Z", "msg": "127.0.0.1:60447 - \"GET /api/v1/feature-flags/x HTTP/1.1\" 404"}
+{"context": "uvicorn", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:35:15.365421Z", "msg": "Shutting down"}
+{"context": "uvicorn", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:35:15.476266Z", "msg": "Waiting for application shutdown."}
+{"context": "LifecycleManager", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:35:15.476683Z", "msg": "lifecycle.resources.tearing_down"}
+{"context": "PostgresClient", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:35:15.476971Z", "msg": "postgres.stopping"}
+{"context": "PostgresClient", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:35:15.477674Z", "msg": "postgres.stopped"}
+{"context": "RedisClient", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:35:15.477957Z", "msg": "redis.stopping"}
+{"context": "RedisClient", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:35:15.478531Z", "msg": "redis.stopped"}
+{"context": "uvicorn", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:35:15.478968Z", "msg": "Application shutdown complete."}
+{"context": "uvicorn", "env": "local", "app": "fastapi-polyrepo-template", "instance": "MacBook-Pro.local", "app.version": "2.0.0", "level": "info", "ts": "2026-10-03T17:35:15.479300Z", "msg": "Finished server process [24040]"}
 ```
 
 </details>
@@ -419,6 +464,12 @@ The route takes claims or `SessionInfo` through FastAPI `Depends`, then passes
 `user_id` (and whatever else the use case needs) into the service method. A service
 that imports `Request` or takes `SessionInfo` in `__init__` is the bug this layout
 exists to prevent.
+
+The shipped feature-flag routes already do the request-scoped half of this.
+`Depends(get_user_details)` reads `X-Tenant-ID` and `X-User-ID` and passes
+`UserDetails` into `FeatureFlagService` methods. Those headers are not
+authentication: a missing header is `422`, not `401`, and nothing verifies
+the caller.
 
 Use `Depends`, not ASGI middleware. Kubernetes probes and `GET /metrics` stay
 callable because they simply omit the dependency — [`k8s_probe_router`](src/app/routes/k8s_probe_router.py)

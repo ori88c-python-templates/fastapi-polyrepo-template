@@ -4,11 +4,11 @@ from typing import Final
 
 
 class FeatureFlagNotFoundError(Exception):
-    """Raised when ``get_flag`` is asked for a name that is not stored.
+    """Raised when ``get_flag`` is asked for a name this tenant does not store.
 
     A service-layer error, not an HTTP one: routes translate it into a 404.
-    Carrying the name lets the handler log and respond without parsing a
-    message.
+    A row for the same name under another tenant is still missing. Carrying
+    the name lets the handler log and respond without parsing a message.
 
     Attributes:
         name: The flag that was requested.

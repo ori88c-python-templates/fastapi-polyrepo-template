@@ -21,6 +21,10 @@ the same id on `request.state`, accepts
 `X-Request-ID` or `X-Correlation-ID` inbound, and always returns `X-Request-ID`. Header
 names come from [`config/app_consts.py`](../config/app_consts.py).
 
+`X-Tenant-ID` and `X-User-ID` are not bound here. Feature-flag routes bind them
+with `Depends(get_user_details)` so probes and `GET /metrics` stay free of those
+headers.
+
 `make_unhandled_http_exception_handler` is FastAPI's `Exception` handler: it logs
 through a `uvicorn` child logger and returns Starlette's generic `500 Internal Server Error`.
 It is not middleware; `LifecycleManager.create_app` registers it with

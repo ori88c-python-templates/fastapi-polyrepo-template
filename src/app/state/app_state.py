@@ -33,7 +33,7 @@ class AppServices:
     it declared.
 
     Attributes:
-        feature_flag: Reads and writes named flags through Redis and PostgreSQL.
+        feature_flag: Reads and writes tenant-scoped flags through Redis and PostgreSQL.
     """
 
     feature_flag: FeatureFlagService

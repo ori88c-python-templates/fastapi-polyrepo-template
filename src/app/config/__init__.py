@@ -11,6 +11,8 @@ from app.config.app_consts import (
     REDOC_ENDPOINT,
     REQUEST_ID_HEADER,
     SWAGGER_DOCS_ENDPOINT,
+    TENANT_ID_HEADER,
+    USER_ID_HEADER,
 )
 from app.config.feature_flag_config import FeatureFlagConfig
 from app.config.logger_config import LoggerConfig, LogLevel
@@ -29,6 +31,8 @@ __all__ = [
     "REDOC_ENDPOINT",
     "REQUEST_ID_HEADER",
     "SWAGGER_DOCS_ENDPOINT",
+    "TENANT_ID_HEADER",
+    "USER_ID_HEADER",
     "AppConfig",
     "Environment",
     "FeatureFlagConfig",

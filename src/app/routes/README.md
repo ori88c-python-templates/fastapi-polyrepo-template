@@ -33,6 +33,11 @@ If a route logs, the logger is a `RouteLogger` argument from
 state. Services still receive a constructor-injected logger named after the service; the same
 request can therefore emit two `context` values with one `correlation_id`.
 
+Feature-flag handlers also take `UserDetails` from `Depends(get_user_details)`.
+That dependency binds `tenant_id` and `user_id` for the request, then the
+handler passes the object into the service method. Do not add middleware for
+those headers.
+
 Probe handlers stay dependency-free and do not log. Probe paths come from
 [`config/app_consts.py`](../config/app_consts.py).
 
