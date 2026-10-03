@@ -1,13 +1,13 @@
 [project]
 name = "fastapi-polyrepo-template"
-version = "1.0.2"
-description = "Production-grade FastAPI polyrepo template built around dependency injection and zero global state."
+version = "2.0.0"
+description = "Production-grade FastAPI polyrepo template built around dependency injection and zero global state. Structured JSON logging, Prometheus metrics, Kubernetes probes, Alembic migrations, and separate unit, integration, and e2e tests are built in."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.14"
 dependencies = [
-    "fastapi~=0.141.1",
+    "fastapi~=0.142.2",
     "pydantic~=2.13.5",
     "pydantic-settings~=2.15.0",
     "psycopg[binary]~=3.2",
