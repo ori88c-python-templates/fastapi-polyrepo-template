@@ -11,6 +11,12 @@ Callers outside this package import from [`__init__.py`](__init__.py):
 `from app.prometheus import PrometheusManager`. Modules inside this
 package still import siblings by module path.
 
+## Table of Contents
+
+- [Belongs here](#belongs-here)
+- [Does not belong here](#does-not-belong-here)
+- [Registration](#registration)
+
 ## Belongs here
 
 - `PrometheusManager`: typed manager over `prometheus-fastapi-instrumentator`

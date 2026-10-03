@@ -6,6 +6,8 @@ alwaysApply: false
 
 # Architecture
 
+## Layers
+
 Three layers. Imports point down, never up.
 
 ```
@@ -33,8 +35,11 @@ them because the composition root looks up `installed_app_version` and injects i
 paths, and the log `app` identity (`APP_NAME`) live in `config/app_consts.py`.
 
 Check the direction before adding an import. If a lower layer needs something from a higher one,
-the design is wrong: move the shared piece down, or pass it in through the constructor. Never
-break a cycle with a function-local or `TYPE_CHECKING` import — both hide the problem.
+the design is wrong: move the shared piece down, or pass it in through the constructor.
+
+## Cycles
+
+Never break a cycle with a function-local or `TYPE_CHECKING` import — both hide the problem.
 
 The import graph must stay a DAG. Python tolerates cycles; this codebase does not.
 `uv run lint-imports` enforces this from the contracts in `pyproject.toml`. It only sees

@@ -2,6 +2,12 @@
 
 Business services: the application's service layer.
 
+## Table of Contents
+
+- [Belongs here](#belongs-here)
+- [Does not belong here](#does-not-belong-here)
+- [Dependency injection](#dependency-injection)
+
 ## Belongs here
 
 - One service class per use case, in a subdirectory named after that use case:

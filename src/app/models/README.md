@@ -3,6 +3,12 @@
 Shared Pydantic models: the domain objects and request/response schemas that services and routes
 pass between each other.
 
+## Table of Contents
+
+- [Belongs here](#belongs-here)
+- [Does not belong here](#does-not-belong-here)
+- [Conventions](#conventions)
+
 ## Belongs here
 
 - Domain models that more than one component uses.

@@ -11,6 +11,13 @@ Callers outside this package import from [`__init__.py`](__init__.py):
 composes sibling modules by their module path; it must not import `from app.config
 import …`.
 
+## Table of Contents
+
+- [Shape](#shape)
+- [Conventions](#conventions)
+- [Validation](#validation)
+- [Adding a resource](#adding-a-resource)
+
 ## Shape
 
 `AppConfig` is the root. It is a composition of one model per resource, so each resource owns its
@@ -33,6 +40,8 @@ AppConfig
 `Environment.include_probes_in_schema()` is derived from `ENV`: Kubernetes probes
 appear in OpenAPI for `local` and `dev` only. There is no extra environment variable.
 `GET /metrics` is never in OpenAPI.
+
+### Protocol constants
 
 [`app_consts.py`](app_consts.py) holds header names, unprefixed infrastructure paths
 (`REQUEST_ID_HEADER`, `/livez`, `/readyz`, `/metrics`, `/docs`, `/redoc`), and the log `app` identity

@@ -3,10 +3,19 @@
 HTTP through the real application: `LifecycleManager`, routers, middleware, and
 throwaway Redis and PostgreSQL.
 
+## Table of Contents
+
+- [Belongs here](#belongs-here)
+- [Does not belong here](#does-not-belong-here)
+
 ## Belongs here
+
+### In-process requests
 
 Requests go in-process (`httpx` + ASGI), not through a uvicorn subprocess. Lifespan
 starts the clients once for the session.
+
+### Shared stores
 
 Throwaway stores and Alembic `upgrade head` are the session fixture
 `throwaway_stores` in [`../conftest.py`](../conftest.py) (modules
@@ -15,12 +24,20 @@ Throwaway stores and Alembic `upgrade head` are the session fixture
 pair. `AppConfig` is built from those store configs so Compose `.env` is never
 the DSN.
 
+### Test layout
+
 Layout mirrors `src/app/routes/`. The next router is
-`tests/e2e/routes/<name>_router/`. Reuse `client` from
+`tests/e2e/routes/<name>_router/`.
+
+### One session app
+
+Reuse `client` from
 [`conftest.py`](conftest.py); do not start another app (the process-wide
 Prometheus registry cannot register the same series twice). Each test module sets
 `pytestmark = pytest.mark.asyncio(loop_scope="session")` so HTTP uses the same
 event loop as the session-scoped clients.
+
+### Metrics
 
 Feature-flag tests scrape `GET /metrics` after a product request so custom
 `feature_flag_*_total` series and default `http_requests_total` are observed on

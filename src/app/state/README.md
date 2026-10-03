@@ -2,6 +2,13 @@
 
 Typed application state and the accessors that recover it from FastAPI's untyped bag.
 
+## Table of Contents
+
+- [Belongs here](#belongs-here)
+- [Does not belong here](#does-not-belong-here)
+- [Why a package of its own](#why-a-package-of-its-own)
+- [Request-scoped identity (when you add auth)](#request-scoped-identity-when-you-add-auth)
+
 ## Belongs here
 
 - `AppState`, `AppClients`, and `AppServices`: the frozen container the composition

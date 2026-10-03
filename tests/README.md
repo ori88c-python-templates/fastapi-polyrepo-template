@@ -2,6 +2,13 @@
 
 The test suite, split by how much of the real world a test is allowed to touch.
 
+## Table of Contents
+
+- [Layout](#layout)
+- [Running](#running)
+
+## Layout
+
 | Path | What belongs there |
 | --- | --- |
 | [`unit/`](unit/README.md) | In-process tests. Dependencies are injected (buffers, temp files, `AsyncMock`). |

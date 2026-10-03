@@ -2,6 +2,11 @@
 
 In-process tests only.
 
+## Table of Contents
+
+- [Belongs here](#belongs-here)
+- [Does not belong here](#does-not-belong-here)
+
 ## Belongs here
 
 Dependencies are passed in: a `BytesIO` for the log manager, an `AsyncMock` for a client the

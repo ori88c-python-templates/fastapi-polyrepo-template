@@ -2,6 +2,15 @@
 
 FastAPI routers: the application's HTTP surface.
 
+## Table of Contents
+
+- [Belongs here](#belongs-here)
+- [Does not belong here](#does-not-belong-here)
+- [Dependency injection](#dependency-injection)
+- [OpenAPI](#openapi)
+- [Unhandled errors](#unhandled-errors)
+- [Sibling independence](#sibling-independence)
+
 ## Belongs here
 
 - One `APIRouter` per resource, in a file named after that resource, as a sibling
@@ -27,11 +36,15 @@ Routes get their dependencies through FastAPI's `Depends`, resolved against the 
 [`state/`](../state/README.md). A handler never constructs a service, reaches for a global, or
 builds its own logger.
 
+### Route loggers
+
 If a route logs, the logger is a `RouteLogger` argument from
 [`route_child_logger.py`](route_child_logger.py). That is the only way a handler may log: no
 `get_child_logger` inside the function, no module-level logger, no grabbing `LogManager` off
 state. Services still receive a constructor-injected logger named after the service; the same
 request can therefore emit two `context` values with one `correlation_id`.
+
+### Caller headers
 
 Feature-flag handlers also take `UserDetails` from `Depends(get_user_details)`.
 That dependency binds `tenant_id` and `user_id` for the request, then the

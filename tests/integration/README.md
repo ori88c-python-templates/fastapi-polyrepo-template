@@ -2,7 +2,15 @@
 
 Tests that exercise a **service** against real Redis and PostgreSQL.
 
+## Table of Contents
+
+- [Belongs here](#belongs-here)
+- [Isolation](#isolation)
+- [Does not belong here](#does-not-belong-here)
+
 ## Belongs here
+
+### Throwaway stores
 
 Testcontainers starts throwaway `postgres:17-alpine` and `redis:7-alpine` (the same images as
 local Compose), on random host ports so they cannot collide with Compose. That
@@ -13,6 +21,8 @@ startup is the session fixture `throwaway_stores` in
 `POSTGRES__*` / `REDIS__*` at the containers so `alembic/env.py` cannot hit
 Compose, then restores the process environment. [`conftest.py`](conftest.py) is
 fixtures only.
+
+### Constructing the service
 
 Construct the service with real `RedisClient` and `PostgresClient` from
 [`conftest.py`](conftest.py). The next service should reuse those fixtures rather than

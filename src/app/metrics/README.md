@@ -10,6 +10,11 @@ It is not [`prometheus/`](../prometheus/README.md). That sibling of `routes/` an
 `middlewares/` owns the scrape endpoint and HTTP-aware series. This package owns
 collectors injected into services.
 
+## Table of Contents
+
+- [Two kinds of custom metric](#two-kinds-of-custom-metric)
+- [Dependency injection](#dependency-injection)
+
 ## Two kinds of custom metric
 
 - **HTTP-aware** (request headers, status, path): defined in

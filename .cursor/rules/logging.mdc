@@ -6,6 +6,8 @@ alwaysApply: false
 
 # Logging
 
+## Injected loggers
+
 Every component receives its own named child logger through its constructor.
 
 ```python
@@ -30,6 +32,8 @@ class UsersService:
 users_service = UsersService(log_manager.get_child_logger("UsersService"))
 ```
 
+## Route loggers
+
 If a **route** logs, the logger must be a `RouteLogger` argument. Do not call
 `get_child_logger` inside the handler, do not keep a module-level logger, and do not
 reach for `LogManager` on application state. `RouteLogger` is a `Depends` that names
@@ -47,6 +51,8 @@ async def get_feature_flag(
     return await service.get_flag(name, user_details)
 ```
 
+## Request-scoped fields
+
 A `Depends` factory may be an async generator. FastAPI wraps that generator in
 an async context manager: it enters before the handler and exits after the
 response. Do not decorate the factory with `@asynccontextmanager`; FastAPI
@@ -57,6 +63,8 @@ logger both pick them up. Do not add middleware for these headers. Do not pass
 `tenant_id` or `user_id` on each `info()`. The handler passes the yielded
 `UserDetails` into the service method.
 
+## Forbidden setup
+
 Never: `structlog.configure()`, `logging.getLogger(__name__)`, a module-level logger, or a
 component constructing its own `LogManager`. `bound_contextvars` is allowed: it writes
 task-scoped fields such as `correlation_id`, `tenant_id`, and `user_id`, and the `with`
@@ -64,12 +72,14 @@ block unbinds them. `configure()` is the process-wide pipeline setup that stays 
 Do not log `correlation_id`, `env`, `app`, `instance`, or `app.version` as call-site kwargs;
 the manager stamps them.
 
+## Uncaught errors
+
 Uncaught errors are three `LogManager` children (`context` `uvicorn`, `asyncio`,
 `sys.excepthook`), not a wrapper on every route. Uvicorn error/access bridges are
 installed from `main` via `LifecycleManager`, not from `create_app`. Details:
 `src/app/logger/README.md`.
 
-Log call style:
+## Log call style
 
 - Message is a short lowercase dotted event name (`"redis.connect.failed"`), never an f-string.
   Everything variable goes in kwargs so it stays queryable.

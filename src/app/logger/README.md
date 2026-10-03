@@ -2,6 +2,19 @@
 
 Structured JSON logging built on [structlog](https://www.structlog.org/).
 
+## Table of Contents
+
+- [Belongs here](#belongs-here)
+- [Does not belong here](#does-not-belong-here)
+- [Rule](#rule)
+- [Hooks and bridges](#hooks-and-bridges)
+- [One instance, but not a singleton](#one-instance-but-not-a-singleton)
+- [Why no `structlog.configure()`](#why-no-structlogconfigure)
+- [Output](#output)
+- [UTF-8](#utf-8)
+- [Output stream](#output-stream)
+- [Levels](#levels)
+
 ## Belongs here
 
 - `LogManager`, which hands out named child loggers via `get_child_logger(name)`.
@@ -18,6 +31,8 @@ Callers import `from app.logger import LogManager`.
 
 ## Rule
 
+### Injected loggers
+
 There is no global logger, and no module-level logger instance either. A component receives its
 logger as a constructor argument:
 
@@ -31,6 +46,8 @@ class UsersService:
 log_manager = LogManager(config.logger, env=config.ENV, app_version=app_version)
 users_service = UsersService(log_manager.get_child_logger("UsersService"))
 ```
+
+### Route loggers
 
 If a route logs, it does not call `get_child_logger` itself and does not take a `LogManager` off
 application state. The logger is a `RouteLogger` argument — a `Depends` in
@@ -58,6 +75,8 @@ async def get_feature_flag(
 ```json
 {"name": "dark_mode", "context": "feature-flag-router.get", "level": "info", "ts": "2026-09-11T13:12:00.000000Z", "msg": "feature_flag.get", "correlation_id": "6f1d3c2a-9b4e-4c11-8a2f-0e7b1d4a9c33", "tenant_id": "tenant-a", "user_id": "user-1", "env": "dev", "app": "fastapi-polyrepo-template", "instance": "api-1", "app.version": "1.0.0"}
 ```
+
+### correlation_id
 
 `correlation_id` is bound by `CorrelationIdMiddleware` for the request, not by the route. The
 processor chain already runs `structlog.contextvars.merge_contextvars` first, so every child

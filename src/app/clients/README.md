@@ -2,6 +2,12 @@
 
 Clients for external resources: the application's data access layer.
 
+## Table of Contents
+
+- [Belongs here](#belongs-here)
+- [Does not belong here](#does-not-belong-here)
+- [Dependency injection](#dependency-injection)
+
 ## Belongs here
 
 - One client class per resource, in a file named after that resource.

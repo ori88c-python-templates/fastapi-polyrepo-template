@@ -3,6 +3,14 @@
 ASGI middleware: the other half of the HTTP layer, wrapping every request before it reaches a
 router.
 
+## Table of Contents
+
+- [Belongs here](#belongs-here)
+- [Does not belong here](#does-not-belong-here)
+- [Registration](#registration)
+- [Authentication](#authentication)
+- [Sibling independence](#sibling-independence)
+
 ## Belongs here
 
 - One middleware class per concern, in a file named after that concern.
@@ -15,20 +23,28 @@ Callers outside this package import from [`__init__.py`](__init__.py):
 make_unhandled_http_exception_handler`. A
 middleware module still imports siblings by module path.
 
+### Correlation id
+
 `CorrelationIdMiddleware` is a raw ASGI wrapper (not `BaseHTTPMiddleware`). It binds
 `correlation_id` with `structlog.contextvars.bound_contextvars` for the request, stores
 the same id on `request.state`, accepts
 `X-Request-ID` or `X-Correlation-ID` inbound, and always returns `X-Request-ID`. Header
 names come from [`config/app_consts.py`](../config/app_consts.py).
 
+### Caller headers
+
 `X-Tenant-ID` and `X-User-ID` are not bound here. Feature-flag routes bind them
 with `Depends(get_user_details)` so probes and `GET /metrics` stay free of those
 headers.
+
+### Unhandled exceptions
 
 `make_unhandled_http_exception_handler` is FastAPI's `Exception` handler: it logs
 through a `uvicorn` child logger and returns Starlette's generic `500 Internal Server Error`.
 It is not middleware; `LifecycleManager.create_app` registers it with
 `add_exception_handler`.
+
+### Security headers
 
 `SecureASGIMiddleware` is an adapter around the `secure` package's ASGI wrapper,
 configured with `Secure.with_default_headers()`. FastAPI cannot attach ASGI

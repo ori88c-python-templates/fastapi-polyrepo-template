@@ -3,6 +3,15 @@
 The composition root. This is the only place that constructs dependencies and wires them to each
 other, and the only place that knows the order resources must start and stop in.
 
+## Table of Contents
+
+- [Belongs here](#belongs-here)
+- [Does not belong here](#does-not-belong-here)
+- [Why a composition root](#why-a-composition-root)
+- [Ordering](#ordering)
+- [HTTP registration](#http-registration)
+- [Typed application state](#typed-application-state)
+
 ## Belongs here
 
 - `LifecycleManager`, which builds the application (`create_app`) and installs
@@ -23,10 +32,16 @@ actually construct that graph, and concentrating it in one place is what keeps i
 else. Nothing outside this package calls a constructor for a client, a service, or a logger, which
 is what makes the rest of the codebase free of global state and testable without patching.
 
+### Why a class
+
 `LifecycleManager` is a class rather than a set of functions because every construction step wants
 the same two things, the configuration and a logger. It builds its own `LogManager` and child logger
 in `__init__`, so each step can report what it is doing without that being threaded through six
-signatures. `main.py` builds exactly one `LifecycleManager`, calls
+signatures.
+
+### Process hooks
+
+`main.py` builds exactly one `LifecycleManager`, calls
 `install_process_logging()`, then `create_app()`. `create_app` registers
 `make_unhandled_http_exception_handler` on `Exception` with the same `uvicorn`
 child the error bridge uses. The asyncio hook is installed for the lifespan of
@@ -47,6 +62,8 @@ discard the records written during the rest of the shutdown.
 
 ## HTTP registration
 
+### Middleware order
+
 Register HTTP concerns in `_add_middlewares_in_order` and `_register_routers`. Starlette
 wraps middleware in reverse order — last added is outermost — see
 [`middlewares/`](../middlewares/README.md). This package's order is
@@ -55,6 +72,8 @@ then `CorrelationIdMiddleware` last (outermost). `add_metrics_router(app, config
 mounts `GET /metrics` from `_register_routers`. Gzip comes from `PrometheusConfig`.
 OpenAPI omission of `/metrics` is fixed in `PrometheusManager`. Each HTTP-aware custom
 series is registered here so `PrometheusManager` does not catalog them.
+
+### Third-party helpers
 
 Third-party `instrument(app)` / `setup(app)` helpers often call `add_middleware`
 themselves. If that runs after `create_app()` returns, the library becomes outermost —
