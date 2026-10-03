@@ -46,4 +46,4 @@ async def test_get_loads_postgres_when_the_cache_key_is_gone(
     loaded = await feature_flag_service.get_flag(_NAME, _CALLER)
 
     assert loaded == written
-    assert await redis_client.raw.get(_CACHE_KEY) == written.model_dump_json()
+    assert await redis_client.get_string(_CACHE_KEY) == written.model_dump_json()

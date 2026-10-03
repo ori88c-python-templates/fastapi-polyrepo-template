@@ -73,7 +73,7 @@ class FeatureFlagService:
         """
         cache_key = self._cache_key(user_details.tenant_id, name)
         self._metrics.reads_total.inc()
-        cached = await self._redis.raw.get(cache_key)
+        cached = await self._redis.get_string(cache_key)
         if cached is not None:
             self._logger.info("feature_flag.cache.hit", name=name)
             return FeatureFlag.model_validate_json(cached)
@@ -146,10 +146,10 @@ class FeatureFlagService:
                 so a cache hit can still return ``updated_at`` and
                 ``updated_by_user_id``.
         """
-        await self._redis.raw.set(
+        await self._redis.set_string(
             cache_key,
             flag.model_dump_json(),
-            ex=self._cache_ttl_seconds,
+            ttl_seconds=self._cache_ttl_seconds,
         )
 
     @staticmethod

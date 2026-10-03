@@ -16,7 +16,7 @@ class RedisClient:
     composition root's topological init rather than in ``__init__``.
 
     Attributes:
-        raw: The wrapped redis-py client, for services that need to run commands.
+        raw: The wrapped redis-py client, for commands that have no helper here.
     """
 
     def __init__(
@@ -55,8 +55,8 @@ class RedisClient:
     def raw(self) -> Redis:
         """The wrapped redis-py client.
 
-        Services issue commands through this rather than through one-off helpers on
-        the wrapper, so the wrapper stays a lifecycle and health object.
+        Commands that have a method on this class should use that method.
+        ``raw`` remains for the rest.
 
         Returns:
             The client constructed in ``__init__``. Responses are decoded to ``str``.
@@ -104,3 +104,33 @@ class RedisClient:
         if pong is not True:
             self._logger.error("redis.ping.unexpected_result", result=pong)
             raise ConnectionError("Redis PING did not return True.")
+
+    async def get_string(self, key: str) -> str | None:
+        """Return the string stored at ``key``.
+
+        Args:
+            key: Redis key.
+
+        Returns:
+            The stored string, or ``None`` when the key does not exist.
+        """
+        # redis-py types ``get`` with ``**kwargs: Unknown``. decode_responses
+        # makes a present value a ``str``.
+        value = await self._client.get(key)  # pyright: ignore[reportUnknownMemberType]
+        if value is None:
+            return None
+        return value if isinstance(value, str) else str(value)
+
+    async def set_string(self, key: str, value: str, *, ttl_seconds: int) -> None:
+        """Store ``value`` at ``key`` and expire it after ``ttl_seconds``.
+
+        Redis ``SET`` takes the expiry as whole seconds (``EX``). The keyword-only
+        argument keeps that duration from being passed as the stored value.
+
+        Args:
+            key: Redis key.
+            value: String to store.
+            ttl_seconds: How long the key lives, in seconds. Passed to Redis as ``EX``.
+        """
+        # redis-py types ``set`` with ``**kwargs: Unknown``.
+        await self._client.set(key, value, ex=ttl_seconds)  # pyright: ignore[reportUnknownMemberType]

@@ -1,7 +1,7 @@
 """Business counters increment when the matching use case runs."""
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 from prometheus_client import CollectorRegistry, generate_latest
 
@@ -21,11 +21,11 @@ _FLAG = FeatureFlag(
 
 async def test_get_flag_increments_reads_total(
     feature_flag_service: FeatureFlagService,
-    redis_client: MagicMock,
+    redis_client: AsyncMock,
     collector_registry: CollectorRegistry,
 ) -> None:
     """A read is observable as scrape text on the service's registry."""
-    redis_client.raw.get.return_value = _FLAG.model_dump_json()
+    redis_client.get_string.return_value = _FLAG.model_dump_json()
 
     await feature_flag_service.get_flag(_NAME, _CALLER)
 

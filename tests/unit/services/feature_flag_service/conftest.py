@@ -1,7 +1,7 @@
 """Assemble a real FeatureFlagService from the shared client doubles."""
 
 from typing import cast
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from prometheus_client import CollectorRegistry
@@ -39,7 +39,7 @@ def feature_flag_metrics(collector_registry: CollectorRegistry) -> FeatureFlagMe
 @pytest.fixture
 def feature_flag_service(
     postgres_client: MagicMock,
-    redis_client: MagicMock,
+    redis_client: AsyncMock,
     log_manager: LogManager,
     feature_flag_metrics: FeatureFlagMetrics,
 ) -> FeatureFlagService:
@@ -47,7 +47,7 @@ def feature_flag_service(
 
     Args:
         postgres_client: Sync ``create_session`` returning the shared session mock.
-        redis_client: Wrapper whose ``raw`` get/set are awaitable mocks.
+        redis_client: Client whose string get and set are awaitable mocks.
         log_manager: Buffer-backed manager from the unit-test root.
         feature_flag_metrics: Collectors on this test's private registry.
 

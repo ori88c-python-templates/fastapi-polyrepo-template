@@ -12,16 +12,13 @@ from tests.unit.app_state_factory import AppStateFactory, build_app_state
 
 
 @pytest.fixture
-def redis_client() -> MagicMock:
-    """Provide a Redis wrapper whose ``raw`` commands are async mocks.
+def redis_client() -> AsyncMock:
+    """Provide a Redis client whose command methods are awaitable mocks.
 
     Returns:
-        A ``MagicMock`` specced on ``RedisClient``, with ``raw.get`` / ``raw.set``
-        awaitable so a service test can canned-response the cache.
+        An ``AsyncMock`` specced on ``RedisClient``.
     """
-    client = MagicMock(spec=RedisClient)
-    client.raw = AsyncMock()
-    return client
+    return AsyncMock(spec=RedisClient)
 
 
 @pytest.fixture

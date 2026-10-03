@@ -1,7 +1,7 @@
 """Writes: insert a new row, update an existing one, refresh Redis."""
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 from app.clients import create_redis_key
 from app.clients.postgres import FeatureFlagRow
@@ -17,7 +17,7 @@ _CACHE_TTL_SECONDS = 300
 
 async def test_set_inserts_when_postgres_has_no_row(
     feature_flag_service: FeatureFlagService,
-    redis_client: MagicMock,
+    redis_client: AsyncMock,
     postgres_session: AsyncMock,
 ) -> None:
     """A new name is added, committed, and written to Redis with the cache TTL."""
@@ -40,16 +40,16 @@ async def test_set_inserts_when_postgres_has_no_row(
     assert added.value is True
     assert added.updated_by_user_id == _CALLER.user_id
     postgres_session.commit.assert_awaited_once()
-    redis_client.raw.set.assert_awaited_once_with(
+    redis_client.set_string.assert_awaited_once_with(
         _CACHE_KEY,
         flag.model_dump_json(),
-        ex=_CACHE_TTL_SECONDS,
+        ttl_seconds=_CACHE_TTL_SECONDS,
     )
 
 
 async def test_set_updates_an_existing_row_in_place(
     feature_flag_service: FeatureFlagService,
-    redis_client: MagicMock,
+    redis_client: AsyncMock,
     postgres_session: AsyncMock,
 ) -> None:
     """An existing row is mutated, not re-added, and Redis is refreshed."""
@@ -73,8 +73,8 @@ async def test_set_updates_an_existing_row_in_place(
     assert row.updated_by_user_id == _CALLER.user_id
     postgres_session.add.assert_not_called()
     postgres_session.commit.assert_awaited_once()
-    redis_client.raw.set.assert_awaited_once_with(
+    redis_client.set_string.assert_awaited_once_with(
         _CACHE_KEY,
         flag.model_dump_json(),
-        ex=_CACHE_TTL_SECONDS,
+        ttl_seconds=_CACHE_TTL_SECONDS,
     )
