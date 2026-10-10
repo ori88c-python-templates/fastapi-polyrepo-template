@@ -465,12 +465,6 @@ The route takes claims or `SessionInfo` through FastAPI `Depends`, then passes
 that imports `Request` or takes `SessionInfo` in `__init__` is the bug this layout
 exists to prevent.
 
-The shipped feature-flag routes already do the request-scoped half of this.
-`Depends(get_user_details)` reads `X-Tenant-ID` and `X-User-ID` and passes
-`UserDetails` into `FeatureFlagService` methods. Those headers are not
-authentication: a missing header is `422`, not `401`, and nothing verifies
-the caller.
-
 Use `Depends`, not ASGI middleware. Kubernetes probes and `GET /metrics` stay
 callable because they simply omit the dependency — [`k8s_probe_router`](src/app/routes/k8s_probe_router.py)
 is already dependency-free.
