@@ -21,6 +21,7 @@ A composition root wires clients, services, and loggers so tests inject dependen
 - [Production deploy](#production-deploy)
 - [Testing](#testing)
 - [Linting and type checking](#linting-and-type-checking)
+- [Pre-commit hooks](#pre-commit-hooks)
 - [CI](#ci)
 - [Authentication](#authentication)
 
@@ -223,7 +224,7 @@ cp .env.example .env
 ```
 
 `uv sync` installs the dev tools. `uv run pre-commit install` registers the Git hook once per
-clone so commits run the checks in [Linting and type checking](#linting-and-type-checking).
+clone so commits run the checks in [Pre-commit hooks](#pre-commit-hooks).
 
 `.env.example` is a working local configuration for the Compose stack, not a list of
 placeholders. Copy it before `docker compose up` so Compose interpolation, Alembic, and the
@@ -431,8 +432,15 @@ fail the contract. So does a service or client that imports FastAPI.
 All three are configured in `pyproject.toml`, and every rule exemption there carries a comment
 explaining itself.
 
-The same four commands run on `git commit` via [pre-commit](https://pre-commit.com/). Format in the
-hook is `ruff format --check .`, so an unformatted tree fails the commit instead of rewriting it.
+## Pre-commit hooks
+
+The same four commands, plus `uv audit --locked --preview-features audit-command`, run on
+`git commit` via [pre-commit](https://pre-commit.com/). Format in the hook is
+`ruff format --check .`, so an unformatted tree fails the commit instead of rewriting it.
+The audit hook needs a network to fetch advisories. A CVE published while `main` is idle
+is still caught by the weekly Audit workflow, because the lock does not change when the
+advisory appears.
+
 After `uv sync`, install the hook once:
 
 ```bash

@@ -25,3 +25,9 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: uv-audit
+        name: uv audit
+        entry: uv audit --locked --preview-features audit-command
+        language: system
+        pass_filenames: false
+        always_run: true
