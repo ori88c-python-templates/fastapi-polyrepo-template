@@ -1,6 +1,6 @@
 [project]
 name = "fastapi-polyrepo-template"
-version = "2.0.0"
+version = "2.0.1"
 description = "Production-grade FastAPI polyrepo template built around dependency injection and zero global state. Structured JSON logging, Prometheus metrics, Kubernetes probes, Alembic migrations, and separate unit, integration, and e2e tests are built in."
 readme = "README.md"
 license = "MIT"
