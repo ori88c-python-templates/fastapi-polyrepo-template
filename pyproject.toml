@@ -7,9 +7,9 @@ license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.14"
 dependencies = [
-    "fastapi~=0.143.0",
-    "pydantic~=2.13.5",
-    "pydantic-settings~=2.15.0",
+    "fastapi~=0.162.0",
+    "pydantic~=2.14.1",
+    "pydantic-settings~=2.16.1",
     "psycopg[binary]~=3.2",
     "redis~=8.1.0",
     "sqlalchemy[asyncio]~=2.1.4",
@@ -33,16 +33,16 @@ app = "app.main:main"
 dev = [
     "httpx~=0.28.1",
     "import-linter~=2.15.0",
-    "pre-commit~=4.6.2",
+    "pre-commit~=4.7.0",
     "pyright~=1.1.414",
     "pytest~=9.1.1",
-    "pytest-asyncio~=1.4.0",
-    "ruff~=0.16.10",
+    "pytest-asyncio~=1.4.1",
+    "ruff~=0.17.3",
     "testcontainers~=4.15.0",
 ]
 
 [build-system]
-requires = ["uv_build>=0.12.9,<0.13"]
+requires = ["uv_build>=0.12.9,<0.14"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
