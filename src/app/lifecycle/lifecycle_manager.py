@@ -18,7 +18,7 @@ from app.logger import (
     make_asyncio_exception_handler,
     make_sys_excepthook,
 )
-from app.metrics import FeatureFlagMetrics
+from app.metrics import EventLoopLagMonitor, FeatureFlagMetrics
 from app.middlewares import (
     CorrelationIdMiddleware,
     SecureASGIMiddleware,
@@ -70,7 +70,9 @@ class LifecycleManager:
 
         The ``LogManager`` is built here rather than during ``create_app`` because it is
         the one dependency the manager itself needs: it has to be able to log the
-        construction of everything else, including the failures.
+        construction of everything else, including the failures. The event-loop lag
+        histogram is registered here too. It does not need a running loop; the probe
+        task starts in ``_init_by_topological_order``.
 
         Args:
             app_config: Fully validated configuration, built by the caller so that a bad
@@ -90,6 +92,9 @@ class LifecycleManager:
         self._prometheus: Final = PrometheusManager()
         self._prometheus.add_http_instrumentation(
             make_inbound_request_id_instrumentation(self._prometheus.registry),
+        )
+        self._event_loop_lag: Final = EventLoopLagMonitor(
+            registry=self._prometheus.registry,
         )
 
     def create_app(self) -> FastAPI:
@@ -196,7 +201,9 @@ class LifecycleManager:
 
         Installs the asyncio unhandled-exception hook on the running loop for
         the lifetime of this context, and restores the previous handler after
-        teardown so ``stop()`` failures still get structured ``asyncio`` logs.
+        teardown so client ``stop()`` failures still get structured ``asyncio``
+        logs. Teardown runs even when startup fails, so a probe or client that
+        opened before the failure is still released.
 
         Args:
             app: The application being started. Its state was attached by ``create_app``.
@@ -213,12 +220,12 @@ class LifecycleManager:
             )
         )
         try:
-            await self._init_by_topological_order(app_state)
             try:
+                await self._init_by_topological_order(app_state)
                 yield
             finally:
-                # A crash while serving still has to release connections, so teardown
-                # belongs in `finally` rather than merely after the yield.
+                # A crash while serving, or a failed startup, still has to release
+                # what opened. Teardown belongs in `finally` rather than after yield.
                 await self._teardown_by_reverse_topological_order(app_state)
         finally:
             loop.set_exception_handler(previous_handler)
@@ -228,14 +235,17 @@ class LifecycleManager:
 
         Connection pools cannot be opened in ``_build_app_state`` because there is no
         running event loop yet, so construction and connection are deliberately separate
-        steps. Redis and PostgreSQL do not depend on each other; Redis is started
-        first to match the field order on ``AppClients``.
+        steps. The event-loop lag probe starts first. It depends on nothing, and the
+        clients do not depend on it; first means a blocking connect is visible in the
+        histogram. Redis and PostgreSQL do not depend on each other; Redis is started
+        next to match the field order on ``AppClients``.
 
         Args:
             app_state: The state whose clients are being started.
         """
         self._logger.info("lifecycle.resources.initializing")
 
+        self._event_loop_lag.start()
         await app_state.clients.redis.start()
         await app_state.clients.postgres.start()
 
@@ -243,11 +253,13 @@ class LifecycleManager:
         """Release every resource, in the exact reverse of the startup order.
 
         Reverse order is what makes shutdown graceful: a resource is only closed once
-        everything that might still call it is already gone.
+        everything that might still call it is already gone. The lag probe stops after
+        the clients, so a blocking disconnect is still sampled, and before the log
+        flush. ``stop`` is safe when ``start`` never ran.
 
-        The log manager is flushed last for the same reason. It is what everything else
-        logs through, so draining it earlier would discard the records written while the
-        remaining resources shut down.
+        The log manager is flushed last. It is what everything else logs through, so
+        draining it earlier would discard the records written while the remaining
+        resources shut down.
 
         Args:
             app_state: The state being torn down.
@@ -260,7 +272,10 @@ class LifecycleManager:
             try:
                 await app_state.clients.redis.stop()
             finally:
-                app_state.log_manager.flush()
+                try:
+                    await self._event_loop_lag.stop()
+                finally:
+                    app_state.log_manager.flush()
 
     def _add_middlewares_in_order(self, app: FastAPI) -> None:
         """Register middleware, outermost last.

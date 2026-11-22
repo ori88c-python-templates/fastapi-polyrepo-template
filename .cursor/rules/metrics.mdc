@@ -1,5 +1,5 @@
 ---
-description: Business collectors live in metrics/ and are injected; never constructed in the service.
+description: Collectors live in metrics/ on an injected registry. Services never construct them. Runtime probes start from the composition root.
 globs: src/app/metrics/**/*.py,src/app/services/**/*.py,src/app/lifecycle/**/*.py,src/app/clients/**/*.py,src/app/routes/**/*.py
 alwaysApply: false
 ---
@@ -14,6 +14,11 @@ The composition root constructs each collector class once on
 `PrometheusManager.registry` and injects it. A service or client never calls
 `Counter(...)` itself and never defaults to the process-wide `REGISTRY`. Tests
 pass a private `CollectorRegistry`.
+
+A runtime probe that no service increments also lives here. `EventLoopLagMonitor`
+is constructed on `PrometheusManager.registry` and started and stopped with the
+running loop. It is not a service counter, and it does not read the Starlette
+request, so it does not belong in `prometheus/`.
 
 ```python
 # BAD - the service owns a process-wide series

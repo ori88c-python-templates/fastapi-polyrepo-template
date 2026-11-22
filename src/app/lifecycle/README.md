@@ -60,6 +60,12 @@ loop, so anything needing one opens in `_init_by_topological_order` instead.
 The log manager is flushed last. Everything else logs through it, so draining it earlier would
 discard the records written during the rest of the shutdown.
 
+`EventLoopLagMonitor` is not `AppState`: no route or service calls it. It is the first start in
+`_init_by_topological_order` and the last stop in `_teardown_by_reverse_topological_order` before
+the log flush. It depends on nothing. Starting first and stopping last means a blocking connect or
+disconnect shows up in `asyncio_event_loop_lag_seconds`. Teardown runs even when startup fails, and
+`stop` is safe when `start` never ran, so a failed client start still cancels the probe.
+
 ## HTTP registration
 
 ### Middleware order

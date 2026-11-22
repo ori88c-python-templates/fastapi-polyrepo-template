@@ -30,6 +30,9 @@ root registers each product callback so the manager does not become a catalog.
 
 - Collectors that services increment. Those live in [`metrics/`](../metrics/README.md) and
   must not import FastAPI or Starlette.
+- Event-loop lag. `asyncio_event_loop_lag_seconds` is a runtime probe in
+  [`metrics/`](../metrics/README.md), not an HTTP series. Request latency cannot
+  tell a slow dependency from a blocked loop.
 - ASGI middleware classes that are not the instrumentator. Those live in `middlewares/`.
 
 ## Registration

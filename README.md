@@ -35,7 +35,7 @@ A composition root wires clients, services, and loggers so tests inject dependen
 - **Cursor rules that keep the conventions** 🤖: Checked-in [`.cursor/rules`](.cursor/rules) encode layers, logging, tests, and metrics so AI-assisted edits copy this architecture instead of inventing a new one.
 - **Sample vertical slice** 🚩: `FeatureFlagService` plus its router, Prometheus series, and matching integration and e2e tests. Copy that pattern for the first real resource.
 - **Alembic out of band** 🗃️: Schema migrations are their own command, separate from the HTTP process. Same image, two commands: upgrade, then start the app.
-- **Production-shaped ops** 🚢: Non-root multi-stage image, Kubernetes liveness and readiness probes (`GET /livez`, `GET /readyz`), Prometheus scrape (`GET /metrics`), and GitHub Actions CI. `FeatureFlagService` includes a custom-metrics example (`feature_flag_reads_total`, `feature_flag_writes_total`).
+- **Production-shaped ops** 🚢: Non-root multi-stage image, Kubernetes liveness and readiness probes (`GET /livez`, `GET /readyz`), Prometheus scrape (`GET /metrics`, including `asyncio_event_loop_lag_seconds` so a blocked loop is a different signal from slow HTTP), and GitHub Actions CI. `FeatureFlagService` includes a custom-metrics example (`feature_flag_reads_total`, `feature_flag_writes_total`).
 - **Supply-chain hygiene** 🔒: SHA-pinned Actions, weekly Dependabot for the `uv` lockfile and GitHub Actions, and a separate `uv audit` workflow on push/PR plus a weekly schedule so a CVE published while `main` is idle still fails the Audit badge.
 
 ## Why this template
@@ -120,7 +120,7 @@ at one level is the developer's job.
 | `src/app/lifecycle/` | The composition root: `LifecycleManager`, startup and shutdown |
 | `src/app/state/` | Typed `AppState` and the accessors route handlers `Depends` on |
 | `src/app/logger/` | `LogManager`, the factory for injectable structured child loggers |
-| `src/app/metrics/` | Prometheus collectors injected into services; not FastAPI-aware |
+| `src/app/metrics/` | Prometheus collectors injected into services, plus the event-loop lag probe; not FastAPI-aware |
 | `src/app/distribution/` | Installed dist metadata for the `app` import (`app.version`) |
 | `src/app/models/` | Shared Pydantic models used by services and routes |
 | `src/app/clients/` | Data access clients for Redis, PostgreSQL, and external APIs |
